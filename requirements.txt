@@ -1,0 +1,11 @@
+numpy
+tqdm
+tensorboardX
+sklearn
+torch==1.0
+scipy
+pandas
+transforms3d
+matplotlib
+requests
+cython
