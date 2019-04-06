@@ -1,6 +1,6 @@
 # DeeplyTough
 
-This is the official PyTorch implementation of our paper *DeeplyTough: Learning Structural Comparison of Protein Binding Sites*, available from <https://www.biorxiv.org/content/XXXXX>.
+This is the official PyTorch implementation of our paper *DeeplyTough: Learning Structural Comparison of Protein Binding Sites*, available from <https://www.biorxiv.org/content/10.1101/600304v1>.
 
 ![DeeplyTough overview figure](overview.png?raw=true "DeeplyTough overview figure.")
 
