@@ -39,7 +39,7 @@ class VoxelizedDataset(Dataset):
             self.pdb_list.append(pdb_entry)
             self.pdb_idx.append(i)
 
-        assert len(self.pdb_list) > 0, 'No HTMD could have been found but {} PDB files were given, please call preprocess_once() on the dataset'.format(len(pdb_list))
+        assert len(self.pdb_list) > 0, 'No HTMD could be found but {} PDB files were given, please call preprocess_once() on the dataset'.format(len(pdb_list))
         logging.info('Dataset size: %d', len(self.pdb_list))
 
         self._resolution = 1.0

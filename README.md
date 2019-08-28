@@ -1,6 +1,6 @@
 # DeeplyTough
 
-This is the official PyTorch implementation of our paper *DeeplyTough: Learning Structural Comparison of Protein Binding Sites*, available from <https://www.biorxiv.org/content/10.1101/600304v1>.
+This is the official PyTorch implementation of our paper *DeeplyTough: Learning Structural Comparison of Protein Binding Sites*, available from <https://www.biorxiv.org/content/XXXXX>.
 
 ![DeeplyTough overview figure](overview.png?raw=true "DeeplyTough overview figure.")
 
@@ -14,8 +14,9 @@ Alternatively, environment `deeplytough` can be created inside local [conda](htt
 
 ```bash
 conda create -y -n deeplytough python=3.6
-conda install -y -n deeplytough -c openbabel -c anaconda -c acellera -c psi4 biopython openbabel htmd
-conda create -y -n deeplytough_mgltools
+conda install -y -n deeplytough -c anaconda -c acellera -c psi4 biopython htmd=1.13.10
+apt-get -y install openbabel
+conda create -y -n deeplytough_mgltools python=2.7
 conda install -y -n deeplytough_mgltools -c bioconda mgltools
 
 conda activate deeplytough
