@@ -2,6 +2,7 @@ import numpy as np
 import os
 from .pocket_matcher import PocketMatcher
 
+
 class ToughOfficials(PocketMatcher):
     """
     Return the precomputed results for several methods in official Tough dataset repo
@@ -10,7 +11,8 @@ class ToughOfficials(PocketMatcher):
     def __init__(self, alg_name, score_column):
         self.scores = {}
         for cls in ['positive', 'negative']:
-            with open(os.path.join(os.environ.get('STRUCTURE_DATA_DIR'), 'TOUGH-M1', '{}-TOUGH-M1_{}.score'.format(alg_name, cls))) as f:
+            with open(os.path.join(
+                    os.environ.get('STRUCTURE_DATA_DIR'), 'TOUGH-M1', f'{alg_name}-TOUGH-M1_{cls}.score')) as f:
                 for line in f.readlines():
                     s = line.split()
                     self.scores[s[0] + s[1]] = float(s[score_column])

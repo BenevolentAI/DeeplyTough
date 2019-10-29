@@ -1,7 +1,8 @@
 import argparse
-import pickle
-import os
 import logging
+import os
+import pickle
+
 from datasets import Custom
 from matchers import DeeplyTough
 
@@ -27,27 +28,42 @@ def main():
     args = get_cli_args()
 
     database = Custom(args.dataset_subdir)
+
     if args.db_preprocessing:
         database.preprocess_once()
+
+    # Retrieve structures
     entries = database.get_structures()
 
+    # Get matcher and perform any necessary pre-compututations
     if args.alg == 'DeeplyTough':
         matcher = DeeplyTough(args.net, device=args.device, batch_size=args.batch_size, nworkers=args.nworkers)
         entries = matcher.precompute_descriptors(entries)
     else:
         raise NotImplementedError
 
+    # Evaluate pocket pairs
     results = database.evaluate_matching(entries, matcher)
     results['benchmark_args'] = args
 
-    fname = 'Custom-{}-{}.pickle'.format(args.alg, os.path.basename(args.net).replace('.pth.tar',''))
-    fname_txt = os.path.join(args.output_dir, fname.replace('.pickle','.csv'))
+    # Format output file names
+    fname = f"Custom-{args.alg}-{os.path.basename(os.path.dirname(args.net))}.pickle"
+    fname_txt = os.path.join(args.output_dir, fname.replace('.pickle', '.csv'))
+
+    # Make sure output directory exists
     os.makedirs(args.output_dir, exist_ok=True)
+
+    # Write pickle
     pickle.dump(results, open(os.path.join(args.output_dir, fname), 'wb'))
+
+    # Write csv results
     with open(fname_txt, 'w') as f:
         for p, s in zip(results['pairs'], results['scores']):
-            f.write('{},{},{}\n'.format(p[0]['key'], p[1]['key'], s))
-    print('Evaluation finished, see {}'.format(fname_txt))
+            f.write(f"{p[0]['key']},{p[1]['key']},{s}\n")
+
+    # Done!
+    print(f'Evaluation finished, see {fname_txt}')
+
 
 if __name__ == '__main__':
     main()

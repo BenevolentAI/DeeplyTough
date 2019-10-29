@@ -1,6 +1,8 @@
 import os
+
 import Bio.PDB as PDB
 import numpy as np
+
 from misc.cc_ligands import ignore_list
 from misc.utils import NonUniqueStructureBuilder
 
@@ -129,19 +131,20 @@ class PocketFromLigandDetector:
 
         for n, het in enumerate(het_list):
             if self.include_het_resname:
-                site_name = "{0}_site_{1}_{2}.{3}".format(name, n + 1, het.resname, ext)
+                site_name = f"{name}_site_{n+1}_{het.resname}.{ext}"
             else:
-                site_name = "{0}_site_{1}.{2}".format(name, n + 1, ext)
+                site_name = f"{name}_site_{n+1}.{ext}"
             fname = os.path.join(output_dir, site_name)
             output_pockets.append(fname)
-            io.save(fname, NearLigandSelect(self.distance_threshold, het, keep_lig_in_site=False, keep_water=self.keep_water, keep_other_hets=self.keep_other_hets))
+            io.save(fname, NearLigandSelect(self.distance_threshold, het, keep_lig_in_site=False,
+                                            keep_water=self.keep_water, keep_other_hets=self.keep_other_hets))
             if not self.ligand_fname_pattern[0]:
                 if self.include_het_resname:
-                    lig_name = "{0}_lig_{1}_{2}.{3}".format(name, n + 1, het.resname, ext)
+                    lig_name = f"{name}_lig_{n+1}_{het.resname}.{ext}"
                 else:
-                    lig_name = "{0}_lig_{1}.{2}".format(name, n + 1, ext)
+                    lig_name = f"{name}_lig_{n+1}.{ext}"
                 io.save(os.path.join(output_dir, lig_name), LigandOnlySelect(het))
                 ligand_paths.append(os.path.join(output_dir, lig_name))
 
         if self.save_clean_structure:
-            io.save(os.path.join(output_dir, '{}_clean.{}'.format(name, ext)), ChainOnlySelect())
+            io.save(os.path.join(output_dir, f'{name}_clean.{ext}'), ChainOnlySelect())

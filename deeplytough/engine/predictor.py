@@ -1,19 +1,23 @@
-import numpy as np
+import logging
 import os
-from tqdm.autonotebook import tqdm
+
+import numpy as np
 import torch
 import torch.nn.functional as nnf
+from tqdm.autonotebook import tqdm
 
 from engine.datasets import PointOfInterestVoxelizedDataset
 from engine.models import create_model
 
-import logging
 logger = logging.getLogger(__name__)
 
 
 def load_model(model_dir, device):
-    """ Loads the model from file """
-    if isinstance(device, str): device = torch.device(device)
+    """
+    Loads the model from file
+    """
+    if isinstance(device, str):
+        device = torch.device(device)
     fname = os.path.join(model_dir, 'model.pth.tar') if 'pth.tar' not in model_dir else model_dir
     checkpoint = torch.load(fname, map_location=str(device))
     model = create_model(checkpoint['args'], PointOfInterestVoxelizedDataset, device)
@@ -23,9 +27,12 @@ def load_model(model_dir, device):
 
 
 def load_and_precompute_point_feats(model, args, pdb_list, point_list, device, nworkers, batch_size):
-    """ Compute descriptors for every (pdb, point) pair given """
+    """
+    Compute descriptors for every (pdb, point) pair given
+    """
     model.eval()
-    if isinstance(device, str): device = torch.device(device)
+    if isinstance(device, str):
+        device = torch.device(device)
 
     dataset = PointOfInterestVoxelizedDataset(pdb_list, point_list, box_size=args.patch_size)
     loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=nworkers)
@@ -46,7 +53,9 @@ def load_and_precompute_point_feats(model, args, pdb_list, point_list, device, n
 
 
 def match_precomputed_point_pairs(descriptors_A, descriptors_B):
-    """ Match pairs of descriptors. Some may be None, then their distance is NaN.  """
+    """
+    Match pairs of descriptors. Some may be None, then their distance is NaN
+    """
     with torch.no_grad():
         distances = []
 
@@ -60,8 +69,10 @@ def match_precomputed_point_pairs(descriptors_A, descriptors_B):
 
 
 def match_precomputed_points_bipartite(descriptors_A, descriptors_B):
-    """ Matches the Cartesian product of descriptors (bipartite or complete matching, if B is None)
-        Some may be None, then their distance is NaN.  """
+    """
+    Matches the Cartesian product of descriptors (bipartite or complete matching, if B is None)
+    Some may be None, then their distance is NaN
+    """
     with torch.no_grad():
 
         def assemble(descriptors):
