@@ -4,8 +4,8 @@ import urllib.request
 import numpy as np
 from tqdm.autonotebook import tqdm
 from collections import defaultdict
-from sklearn.metrics import roc_curve, roc_auc_score
-from misc.utils import htmd_featurizer
+from sklearn.metrics import roc_curve, roc_auc_score, precision_recall_curve
+from misc.utils import htmd_featurizer, voc_ap
 from misc.ligand_extract import PocketFromLigandDetector
 
 import logging
@@ -114,7 +114,10 @@ class Vertex:
 
         fpr, tpr, roc_thresholds = roc_curve(positives, scores)
         auc = roc_auc_score(positives, scores)
+        precision, recall, thresholds = precision_recall_curve(positives, scores)
+        ap = voc_ap(recall[::-1], precision[::-1])
 
-        results = {'auc': auc, 'fpr': fpr, 'tpr': tpr, 'th_roc': roc_thresholds,
+        results = {'ap': ap, 'pr': precision, 're': recall, 'th': thresholds,
+                   'auc': auc, 'fpr': fpr, 'tpr': tpr, 'th_roc': roc_thresholds,
                    'pairs': keys_out, 'scores': scores, 'pos_mask': positives}
         return results

@@ -10,7 +10,7 @@ import numpy as np
 from collections import defaultdict
 from sklearn.metrics import precision_recall_curve, roc_curve, roc_auc_score
 from sklearn.model_selection import GroupKFold, KFold, GroupShuffleSplit
-from misc.utils import htmd_featurizer
+from misc.utils import htmd_featurizer, voc_ap
 
 import logging
 logger = logging.getLogger(__name__)
@@ -189,7 +189,10 @@ class ToughM1:
 
         fpr, tpr, roc_thresholds = roc_curve(positives_clean, scores_clean)
         auc = roc_auc_score(positives_clean, scores_clean)
+        precision, recall, thresholds = precision_recall_curve(positives_clean, scores_clean)
+        ap = voc_ap(recall[::-1], precision[::-1])
 
-        results = {'auc': auc, 'fpr': fpr, 'tpr': tpr, 'th_roc': roc_thresholds,
+        results = {'ap': ap, 'pr': precision, 're': recall, 'th': thresholds,
+                   'auc': auc, 'fpr': fpr, 'tpr': tpr, 'th_roc': roc_thresholds,
                    'pairs': pairs, 'scores': scores, 'pos_mask': positives}
         return results
