@@ -4,7 +4,7 @@ SHELL ["/bin/bash", "-c"]
 # Source code
 ADD . /app
 WORKDIR /app
-ENV PYTHONPATH=/app/src:$PYTHONPATH
+ENV PYTHONPATH=/app/deeplytough:$PYTHONPATH
 
 # APT dependencies
 RUN apt-get update && apt-get install -y \

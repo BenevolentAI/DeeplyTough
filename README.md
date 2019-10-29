@@ -51,7 +51,7 @@ The tool also supports an easy way of computing pocket distances for a user-defi
 To run the evaluation and training scripts, please first set the `DEEPLYTOUGH` environment variable to the directory containing this repository and then update the `PYTHONPATH` and `PATH` variables respectively:
 ```bash
 export DEEPLYTOUGH=/path_to_this_repository
-export PYTHONPATH=$DEEPLYTOUGH/src:$PYTHONPATH
+export PYTHONPATH=$DEEPLYTOUGH/deeplytough:$PYTHONPATH
 export PATH=$DEEPLYTOUGH/fpocket2/bin:$PATH
 ```
 
@@ -61,22 +61,22 @@ We provide pre-trained networks in the `networks` directory in this repository. 
 
 * Evaluation on TOUGH-M1: 
 ```bash
-python $DEEPLYTOUGH/src/scripts/toughm1_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_toughm1_test.pth.tar
+python $DEEPLYTOUGH/deeplytough/scripts/toughm1_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_toughm1_test.pth.tar
 ```
 
 * Evaluation on Vertex: 
 ```bash
-python $DEEPLYTOUGH/src/scripts/vertex_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_vertex.pth.tar
+python $DEEPLYTOUGH/deeplytough/scripts/vertex_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_vertex.pth.tar
 ```
 
 * Evaluation on ProSPECCTs: 
 ```bash
-python $DEEPLYTOUGH/src/scripts/prospeccts_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_prospeccts.pth.tar
+python $DEEPLYTOUGH/deeplytough/scripts/prospeccts_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_prospeccts.pth.tar
 ```
 
 * Evaluation on a custom dataset, located in `$STRUCTURE_DATA_DIR/some_custom_name` directory: 
 ```bash
-python $DEEPLYTOUGH/src/scripts/custom_evaluation.py --dataset_subdir 'some_custom_name' --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_toughm1_test.pth.tar
+python $DEEPLYTOUGH/deeplytough/scripts/custom_evaluation.py --dataset_subdir 'some_custom_name' --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_toughm1_test.pth.tar
 ```
 Note that networks `deeplytough_prospeccts.pth.tar` and `deeplytough_vertex.pth.tar` may also be used, producing different results.
 
@@ -89,17 +89,17 @@ Training requires a GPU with >=11GB of memory and takes about 1.5 days on recent
 
 * Training for TOUGH-M1 evaluation: 
 ```bash
-python $DEEPLYTOUGH/src/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forTough --device 'cuda:0' --seed 7
+python $DEEPLYTOUGH/deeplytough/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forTough --device 'cuda:0' --seed 7
 ```
 
 * Training for Vertex evaluation:
 ```bash
-python $DEEPLYTOUGH/src/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forVertex --device 'cuda:0' --db_exclude_vertex 'uniprot' --db_split_strategy 'none'
+python $DEEPLYTOUGH/deeplytough/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forVertex --device 'cuda:0' --db_exclude_vertex 'uniprot' --db_split_strategy 'none'
 ```
 
 * Training for ProSPECCTs evaluation:
 ```bash
-python $DEEPLYTOUGH/src/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forProspeccts --device 'cuda:0' --db_exclude_prospeccts 'uniprot' --db_split_strategy 'none'
+python $DEEPLYTOUGH/deeplytough/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forProspeccts --device 'cuda:0' --db_exclude_prospeccts 'uniprot' --db_split_strategy 'none'
 ```
 
 Note that due to non-determinism inherent to the currently established process of training deep networks, it is nearly impossible to exactly reproduce the pre-trained networks in `networks` directory.
@@ -110,5 +110,3 @@ Also note the convenience of an output directory containing "TTTT" will afford t
 
 (c) BenevolentAI Limited 2019. All rights reserved.<br>
 For licensing enquiries, please contact hello@benevolent.ai
-
-  
