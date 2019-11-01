@@ -124,6 +124,11 @@ def htmd_featurizer(pdb_entries, skip_existing=True):
                   '$CONDA_PREFIX/MGLToolsPckgs/AutoDockTools/Utilities24/prepare_receptor4.py' \
                   '-r {} -U nphs_lps_waters -A hydrogens'
 
+    try:
+        subprocess.run(['/bin/bash', '-c',  'source activate deeplytough_mgltools'], check=True)
+    except subprocess.CalledProcessError:
+        mgl_command = mgl_command.replace('source activate', 'conda activate')  # perhaps conda is of a newer date
+
     for entry in pdb_entries:
         pdb_path = entry['protein']
         npz_path = entry['protein_htmd']

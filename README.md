@@ -14,7 +14,7 @@ Alternatively, environment `deeplytough` can be created inside local [conda](htt
 
 ```bash
 conda create -y -n deeplytough python=3.6
-conda install -y -n deeplytough -c anaconda -c acellera -c psi4 biopython htmd=1.13.10
+conda install -y -n deeplytough -c anaconda -c acellera -c psi4 biopython=1.72 htmd=1.13.10
 apt-get -y install openbabel
 conda create -y -n deeplytough_mgltools python=2.7
 conda install -y -n deeplytough_mgltools -c bioconda mgltools

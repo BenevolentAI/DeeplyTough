@@ -25,7 +25,7 @@ ENV PATH=/miniconda/bin:${PATH}
 
 RUN conda update -y -q conda
 RUN conda create -y -n deeplytough python=3.6
-RUN conda install -y -n deeplytough -c anaconda -c acellera -c psi4 biopython htmd=1.13.10
+RUN conda install -y -n deeplytough -c anaconda -c acellera -c psi4 biopython=1.72 htmd=1.13.10
 RUN apt-get -y install openbabel
 RUN source activate deeplytough; pip install --upgrade pip; pip install --no-cache-dir -r /app/requirements.txt
 
