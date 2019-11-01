@@ -37,7 +37,7 @@ def main():
 
     # Retrieve structures
     _, entries = database.get_structures_splits(args.cvfold, strategy=args.db_split_strategy,
-                                                n_folds=args.num_folds, seed=args.cvseed-1)
+                                                n_folds=args.num_folds, seed=args.cvseed)
 
     # Get matcher and perform any necessary pre-compututations
     if args.alg == 'DeeplyTough':
