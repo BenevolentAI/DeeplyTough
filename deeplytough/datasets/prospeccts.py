@@ -5,7 +5,7 @@ import requests
 import concurrent.futures
 import numpy as np
 from sklearn.metrics import roc_curve, roc_auc_score
-from misc.utils import htmd_featurizer
+from misc.utils import htmd_featurizer, get_clusters, get_chain_from_site
 from misc.ligand_extract import PocketFromLigandDetector
 
 import logging
@@ -52,7 +52,7 @@ class Prospeccts:
                         logger.warning(f'Duplicate chain {fam_id} {result}')
                     result.add(fam_id)
         if not result:
-            logger.warning(f'Chain not found {pdb_code}')
+            logger.warning(f'Chain not found {pdb_code} chain {query_chain_id}')
         return fname, result
 
     def preprocess_once(self):
@@ -65,7 +65,7 @@ class Prospeccts:
                     code_to_uniprot[code] = uniprot
 
         pickle.dump(code_to_uniprot,
-                    open(os.environ['STRUCTURE_DATA_DIR'] + '/prospeccts/code_to_uniprot.pickle', 'wb'))
+                    open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], '/prospeccts/code_to_uniprot.pickle'), 'wb'))
 
         htmd_featurizer(self.get_structures(), skip_existing=True)
 
@@ -114,7 +114,17 @@ class Prospeccts:
             logger.warning('code_to_uniprot.pickle not found, please call preprocess_once()')
             code5_to_uniprot = None
 
-        # TODO fit prospeccts into TOUGH clusters to generate 'seqclust' idx using misc.utils.get_clusters
+        # Get list of pdbChain Ids for the prospeccts set
+        prospeccts_code5 = []
+        for pdb in db_pdbs:
+            pocket_path = os.path.join(root, f'/{dir2}/{pdb}_site_1.pdb')
+            # entries are defined by site integers in the prospeccts sets, here we translate to chain ID (letter)
+            chain = get_chain_from_site(pocket_path)
+            code5 = str(code5[:4] + chain)
+            prospeccts_code5.append(code5)
+
+        # get clusters
+        code5_to_seqclust = get_clusters(prospeccts_code5)
 
         entries = []
         for pdb in db_pdbs:
@@ -125,7 +135,8 @@ class Prospeccts:
                 'protein_htmd': npz_root + f'/{dir2}/{pdb}_clean.npz',
                 'code5': pdb,
                 'code': pdb[:4],
-                'uniprot': code5_to_uniprot[pdb] if code5_to_uniprot else 'None'
+                'uniprot': code5_to_uniprot[pdb] if code5_to_uniprot else 'None',
+                'seqclust': code5_to_seqclust[pdb]
             })
         return entries
 

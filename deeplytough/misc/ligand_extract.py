@@ -92,8 +92,7 @@ class PocketFromLigandDetector:
         """
 
         :param distance_threshold: Max distance between residue and ligand
-        :param ligand_fname_pattern: A tuple (old, new) which is used to obtain ligand's file name by replacing `old`
-                                        with `new`.
+        :param ligand_fname_pattern: A tuple (old, new) used to obtain ligand's file name by replacing `old` with `new`
         """
 
         self.distance_threshold = distance_threshold
@@ -113,29 +112,33 @@ class PocketFromLigandDetector:
         structure = parser.get_structure('X', pdb_path)
         model = structure[0]
 
-        ligand_paths = [None]
+        # Get ligand (het) to extract the site around
         if self.ligand_fname_pattern[0]:
-            ligand_paths[0] = pdb_path.replace(self.ligand_fname_pattern[0], self.ligand_fname_pattern[1])
-            ligand = parser.get_structure('L', ligand_paths[0])
+            ligand_path = pdb_path.replace(self.ligand_fname_pattern[0], self.ligand_fname_pattern[1])
+            ligand = parser.get_structure('L', ligand_path)
             het_list = list(ligand.get_residues())
         else:
             # get het entries of interest (filter using static dictionaries)
             het_list = get_het_residues_from_pdb(model, remove_duplicates=False, min_lig_atoms=self.min_lig_atoms,
                                                  allowed_names=self.allowed_lig_names)
 
-        os.makedirs(output_dir, exist_ok=True)
+        # Setup a PDB writer and load protein
         io = PDB.PDBIO()
         io.set_structure(model)
-        name, ext = os.path.basename(pdb_path).split('.', 1)
-        output_pockets = []
+
+        # create output directory and split input pdb_path
+        os.makedirs(output_dir, exist_ok=True)
+        name, ext = os.path.basename(pdb_path).rsplit('.', 1)
 
         for n, het in enumerate(het_list):
+
+            # Set name of output site file
             if self.include_het_resname:
                 site_name = f"{name}_site_{n+1}_{het.resname}.{ext}"
             else:
                 site_name = f"{name}_site_{n+1}.{ext}"
             fname = os.path.join(output_dir, site_name)
-            output_pockets.append(fname)
+
             io.save(fname, NearLigandSelect(self.distance_threshold, het, keep_lig_in_site=False,
                                             keep_water=self.keep_water, keep_other_hets=self.keep_other_hets))
             if not self.ligand_fname_pattern[0]:
@@ -144,7 +147,6 @@ class PocketFromLigandDetector:
                 else:
                     lig_name = f"{name}_lig_{n+1}.{ext}"
                 io.save(os.path.join(output_dir, lig_name), LigandOnlySelect(het))
-                ligand_paths.append(os.path.join(output_dir, lig_name))
 
         if self.save_clean_structure:
             io.save(os.path.join(output_dir, f'{name}_clean.{ext}'), ChainOnlySelect())

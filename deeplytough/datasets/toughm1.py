@@ -13,7 +13,7 @@ import requests
 from sklearn.metrics import precision_recall_curve, roc_curve, roc_auc_score
 from sklearn.model_selection import KFold, GroupShuffleSplit
 
-from misc.utils import htmd_featurizer, voc_ap, get_clusters
+from misc.utils import htmd_featurizer, voc_ap, get_clusters, pdb_check_obsolete
 
 logger = logging.getLogger(__name__)
 
@@ -31,21 +31,6 @@ class ToughM1:
 
         def struct_to_centroid(structure):
             return np.mean(np.array([atom.get_coord() for atom in structure.get_atoms()]), axis=0)
-
-        def pdb_check_obsolete(pdb_code):
-            """
-            Check the status of a pdb, if it is obsolete return the superceding PDB ID
-            """
-            try:
-                r = requests.get(f'https://www.ebi.ac.uk/pdbe/api/pdb/entry/status/{pdb_code}').json()
-            except:
-                logger.info(f"Could not check obsolete status of {pdb_code}")
-                return None
-            if r[pdb_code][0]['status_code'] == 'OBS':
-                pdb_code = r[pdb_code][0]['superceded_by'][0]
-                return pdb_code
-            else:
-                return None
 
         def pdb_chain_to_uniprot(pdb_code, query_chain_id):
             """
@@ -93,7 +78,7 @@ class ToughM1:
                 urllib.request.urlretrieve(f"http://files.rcsb.org/download/{pdb_code}.pdb", fname)
             except:
                 logger.info(f'Could not download PDB: {pdb_code}')
-                return [entry['code5'], 'None', 'xxxxX']
+                return [entry['code5'], 'None']
             orig_str = parser.get_structure('o', fname)
 
         # TOUGH authors haven't re-centered the chains so we can roughly find them just by centroids :)
@@ -109,10 +94,10 @@ class ToughM1:
         if np.min(dists) > 5:
             logger.warning(f"Suspiciously large distance when trying to map tough structure to downloaded one"
                            f"DIST {dists} {ids} {entry['code']} {pdb_code}")
+            return [entry['code5'], 'None']
 
         uniprot = pdb_chain_to_uniprot(pdb_code.lower(), chain_id)
-        new_code5 = f"{pdb_code.lower()}{chain_id.upper()}"
-        return [entry['code5'], uniprot, new_code5]
+        return [entry['code5'], uniprot]
 
     def preprocess_once(self):
         """
@@ -120,25 +105,21 @@ class ToughM1:
         Needs to be called just once in a lifetime
         """
         code5_to_uniprot = {}
-        code5_to_newcode5 = {}
         uniprot_to_code5 = defaultdict(list)
         logger.info('Preprocessing: obtaining uniprot accessions, this will take time.')
         entries = self.get_structures()
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            for code5, uniprot, new_code5 in executor.map(ToughM1._preprocess_worker, entries):
+            for code5, uniprot in executor.map(ToughM1._preprocess_worker, entries):
                 code5_to_uniprot[code5] = uniprot
-                code5_to_newcode5[code5] = new_code5
                 uniprot_to_code5[uniprot] = uniprot_to_code5[uniprot] + [code5]
 
         # Get clusters from pre-calculated pdb blastclust files
-        newcode5_to_seqclust = get_clusters(code5_to_newcode5.values())
-        code5_to_seqclust = {code5: newcode5_to_seqclust[new_code5] for code5, new_code5 in code5_to_newcode5.items()}
+        code5_to_seqclust = get_clusters([e['code5'] for e in entries])
 
-        # Write uniprot mapping to file
+        # write uniprot mapping to file
         pickle.dump({
                 'code5_to_uniprot': code5_to_uniprot,
                 'uniprot_to_code5': uniprot_to_code5,
-                'code5_to_newcode5': code5_to_newcode5,
                 'code5_to_seqclust': code5_to_seqclust
             },
             open(os.path.join(self.tough_data_dir, 'code_uniprot_translation.pickle'), 'wb')
@@ -155,7 +136,7 @@ class ToughM1:
         npz_root = os.path.join(os.environ.get('STRUCTURE_DATA_DIR'), 'processed/htmd/TOUGH-M1/TOUGH-M1_dataset')
         fname_uniprot_mapping = os.path.join(self.tough_data_dir, 'code_uniprot_translation.pickle')
 
-        # Try to load uniprot_translation pickle
+        # try to load uniprot_translation pickle
         try:
             uniprot_mapping = pickle.load(open(fname_uniprot_mapping, 'rb'))
         except FileNotFoundError:
@@ -165,7 +146,6 @@ class ToughM1:
         # Check uniprot translation pickle for uniprot and sequence clustering, allow fail but show warning
         code5_to_uniprot = None
         code5_to_seqclust = None
-        code5_to_newcode5 = None
         if uniprot_mapping:
             if 'code5_to_uniprot' in uniprot_mapping:
                 code5_to_uniprot = uniprot_mapping['code5_to_uniprot']
@@ -175,10 +155,6 @@ class ToughM1:
                 code5_to_seqclust = uniprot_mapping['code5_to_seqclust']
             else:
                 logger.warning("sequence clustering not found in pickle, consider re-running preprocess_once()")
-            if 'code5_to_newcode5' in uniprot_mapping:
-                code5_to_newcode5 = uniprot_mapping['code5_to_newcode5']
-            else:
-                logger.warning("code5 to updated code5 not found in pickle, consider re-running preprocess_once()")
 
         entries = []
         with open(os.path.join(self.tough_data_dir, 'TOUGH-M1_pocket.list')) as f:
@@ -192,8 +168,7 @@ class ToughM1:
                     'code5': code5,
                     'code': code5[:4],
                     'uniprot': code5_to_uniprot[code5] if code5_to_uniprot else 'None',
-                    'seqclust': code5_to_seqclust[code5] if code5_to_seqclust else 'None',
-                    'new_code5': code5_to_newcode5[code5] if code5_to_newcode5 else 'None'
+                    'seqclust': code5_to_seqclust[code5] if code5_to_seqclust else 'None'
                 })
         return entries
 

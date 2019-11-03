@@ -16,11 +16,9 @@ def get_cli_args():
     parser.add_argument('--alg', type=str, default='DeeplyTough', help='Algorithm type')
     parser.add_argument('--net', type=str, default='', help='DeeplyTough network filepath')
     parser.add_argument('--device', type=str, default='cpu', help='cpu or cuda:0')
-    parser.add_argument('--nworkers', default=1, type=int,
-                        help='Num subprocesses to use for data loading. 0 means that the data will be loaded in the main process')
+    parser.add_argument('--nworkers', default=1, type=int, help='Num subprocesses to use for data loading. 0 means that the data will be loaded in the main process')
     parser.add_argument('--batch_size', default=30, type=int)
-    parser.add_argument('--db_preprocessing', default=0, type=int,
-                        help='Bool: whether to run preprocessing for the dataset')
+    parser.add_argument('--db_preprocessing', default=0, type=int, help='Bool: whether to run preprocessing for the dataset')
 
     return parser.parse_args()
 

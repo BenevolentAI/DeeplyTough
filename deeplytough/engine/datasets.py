@@ -14,11 +14,11 @@ from misc.utils import center_from_pdb_file
 
 logger = logging.getLogger(__name__)
 
-occupancylib = ctypes.cdll.LoadLibrary(os.path.join(htmd.home.home(libDir=True), "occupancy_ext.so"))
+occupancylib = ctypes.cdll.LoadLibrary(os.path.join(htmd.home.home(libDir=True), 'occupancy_ext.so'))
 
 
 class VoxelizedDataset(Dataset):
-    """ Abstract base class for dataset of voxelized proteins. """
+    """ Abstract base class for dataset of voxelized proteins """
 
     # 'hydrophobic', 'aromatic', 'hbond_acceptor', 'hbond_donor'
     # 'positive_ionizable', 'negative_ionizable', 'metal', 'occupancies'
@@ -45,7 +45,7 @@ class VoxelizedDataset(Dataset):
 
         assert len(self.pdb_list) > 0, f'No HTMD could be found but {len(pdb_list)}' \
             f'PDB files were given, please call preprocess_once() on the dataset'
-        logging.info('Dataset size: %d', len(self.pdb_list))
+        logger.info('Dataset size: %d', len(self.pdb_list))
 
         self._resolution = 1.0
         self._box_size = box_size
@@ -74,9 +74,7 @@ class VoxelizedDataset(Dataset):
         return M
 
     def _extract_volume(self, coords, channels, center, num_voxels, resolution=1.0):
-        """
-        Computes dense volume for htmd preprocessed coordinates
-        """
+        """ Computes dense volume for htmd preprocessed coordinates """
         assert center.size == 3
         num_voxels = np.array(num_voxels)
         if num_voxels[0] % 2 == 0 and num_voxels[1] % 2 == 0 and num_voxels[2] % 2 == 0:
@@ -100,7 +98,8 @@ class VoxelizedDataset(Dataset):
 
     @staticmethod
     def _getOccupancyC(coords, centers, channelsigmas):  # adapted from voxeldescriptors.py in HTMD
-        """ Calls the C code to calculate the voxels values for each property."""
+        """ Calls the C code to calculate the voxels values for each property """
+
         centers = centers.astype(np.float64)
         coords = coords.astype(np.float32)
         channelsigmas = channelsigmas.astype(np.float64)
@@ -119,7 +118,7 @@ class VoxelizedDataset(Dataset):
 
 
 class PdbTupleVoxelizedDataset(VoxelizedDataset):
-    """ Abstract base class for dataset of tuples of subvolumes of voxelized proteins. """
+    """ Abstract base class for dataset of tuples of subvolumes of voxelized proteins """
 
     def __init__(self, pos_pairs, neg_pairs, pdb_list, box_size, augm_rot=False, augm_mirror_prob=0.0,
                  max_sampling_dist=4.0, augm_robustness=False, augm_decoy_prob=0):
@@ -138,14 +137,14 @@ class PdbTupleVoxelizedDataset(VoxelizedDataset):
         # filter pairs to those supported by pdbs
         self._pos_pairs = list(filter(lambda p: p[0] in self._pdb_map and p[1] in self._pdb_map, pos_pairs))
         self._neg_pairs = list(filter(lambda p: p[0] in self._pdb_map and p[1] in self._pdb_map, neg_pairs))
-        logging.info('Dataset positive pairs: %d, negative pairs: %d', len(self._pos_pairs), len(self._neg_pairs))
+        logger.info('Dataset positive pairs: %d, negative pairs: %d', len(self._pos_pairs), len(self._neg_pairs))
         num_eff_pdbs = set(
             [p[0] for p in self._pos_pairs] +
             [p[1] for p in self._pos_pairs] +
             [p[0] for p in self._neg_pairs] +
             [p[1] for p in self._neg_pairs]
         )
-        logging.info('Effective number of PDB files: %d', len(num_eff_pdbs))
+        logger.info('Effective number of PDB files: %d', len(num_eff_pdbs))
         assert len(self._pos_pairs) > 0 and len(self._neg_pairs) > 0
 
     def _get_patch(self, idx, allow_decoy=False):
@@ -191,7 +190,7 @@ class PdbTupleVoxelizedDataset(VoxelizedDataset):
 
 
 class PdbPairVoxelizedDataset(PdbTupleVoxelizedDataset):
-    """ Dataset of pairs of voxelized pockets. """
+    """ Dataset of pairs of voxelized pockets """
 
     def __len__(self):
         # positive pairs as the driving entity
@@ -212,7 +211,7 @@ class PdbPairVoxelizedDataset(PdbTupleVoxelizedDataset):
 
 
 class PointOfInterestVoxelizedDataset(VoxelizedDataset):
-    """ Dataset of voxelized subvolumes around interest points. """
+    """ Dataset of voxelized subvolumes around interest points """
 
     def __init__(self, pdb_list, point_list, box_size):
         super().__init__(pdb_list, box_size=box_size, augm_rot=False, augm_mirror_prob=0)
@@ -247,10 +246,7 @@ def create_tough_dataset(args, fold_nr, n_folds=5, seed=0, exclude_Vertex_from_t
             Vertex().preprocess_once()
 
         # Get Vertex dataset
-        if args.db_split_strategy == 'seqclust':
-            vertex = Vertex().get_structures(fit_to_tough_clusters=True)
-        else:
-            vertex = Vertex().get_structures()
+        vertex = Vertex().get_structures()
 
         # Exclude entries from tough training set that exist in the vertex set
         logger.info(f'Before Vertex filter {len(pdb_train)}')
@@ -273,8 +269,10 @@ def create_tough_dataset(args, fold_nr, n_folds=5, seed=0, exclude_Vertex_from_t
             for dbname in Prospeccts.dbnames:
                 Prospeccts(dbname).preprocess_once()
 
-        # Exclude entries from tough training set that exist in the ProSPECCTs sets
+        # Get ProSPECCTs datasets
         all_prospeccts = [entry for dbname in Prospeccts.dbnames for entry in Prospeccts(dbname).get_structures()]
+
+        # Exclude entries from tough training set that exist in the ProSPECCTs sets
         logger.info(f'Before Prospeccts filter {len(pdb_train)}')
         if exclude_Prospeccts_from_train == 'uniprot':
             prospeccts_ups = set([u for entry in all_prospeccts for u in entry['uniprot']] + ['None'])

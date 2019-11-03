@@ -1,12 +1,16 @@
 import logging
 import os
+import shutil
 import subprocess
 import tempfile
+import urllib.request as request
+from contextlib import closing
 
 import Bio.PDB as PDB
 import htmd.molecule.molecule as htmdmol
 import htmd.molecule.voxeldescriptors as htmdvox
 import numpy as np
+import requests
 from scipy.spatial import ConvexHull
 from scipy.spatial.qhull import QhullError
 
@@ -16,9 +20,6 @@ logger = logging.getLogger(__name__)
 def failsafe_hull(coords):
     """
     Wrapper of ConvexHull which returns None if hull cannot be computed for given points (e.g. all colinear or too few)
-
-    :param coords:
-    :return:
     """
     coords = np.array(coords)
     if coords.shape[0] > 3:
@@ -82,7 +83,7 @@ class NonUniqueStructureBuilder(PDB.StructureBuilder.StructureBuilder):
         code = ''
         for k in range(3):
             r = n % 36
-            code = chr(ord('A')+r if r<26 else ord('0')+r-26) + code
+            code = chr(ord('A')+r if r < 26 else ord('0')+r-26) + code
             n = n // 36
         assert n == 0, 'number cannot fit 3 characters'
         return code
@@ -137,7 +138,7 @@ def htmd_featurizer(pdb_entries, skip_existing=True):
 
         output_dir = os.path.dirname(npz_path)
         os.makedirs(output_dir, exist_ok=True)
-        logging.info(f'Pre-processing {pdb_path} with HTMD...')
+        logger.info(f'Pre-processing {pdb_path} with HTMD...')
 
         def compute_channels():
             pdbqt_path = os.path.join(output_dir, os.path.basename(pdb_path)) + 'qt'
@@ -193,68 +194,117 @@ def voc_ap(rec, prec):
     return ap
 
 
-def _prody_fetch_PDB_clusters():
-    from prody.utilities import settings
-    from prody.proteins import fetchPDBClusters
+def get_chain_from_site(pocket_path):
+    """get chain ID from site – needed to match clusters to TOUGH clusters"""
 
-    # Check if clusters already exist
-    prody_path = os.path.join(os.environ.get('STRUCTURE_DATA_DIR', '.'), '.prody')
-    prody_path = settings.setPackagePath(prody_path)
-    if not prody_path:
-        raise(PermissionError("Failed to set prody path, likely due to insufficient writing permissions"))
+    def get_chain_id_per_residue(path):
+        """returns list of chains present in the input PDB"""
+        # parse structure object (permissive flag ignores common errors)
+        # loop through all atoms and add unique residues to resiList
+        p = PDB.PDBParser(PERMISSIVE=1, QUIET=True)
+        try:
+            model = p.get_structure('pocket', path)[0]  # load structure and get model
+        except FileNotFoundError:
+            logging.warning(f"No such protein pocket file: {path}")
+            return ['None']
+        except KeyError:
+            logging.warning(f"No such protein pocket file (MODEL LOADING FAILED): {path}")
+            return ['None']
+        resi_lst = [x.get_full_id()[2] for x in model.get_residues()]
+        return resi_lst
 
-    if not os.path.isdir(os.path.join(prody_path, 'pdbclusters')):
-        # Set data path to save PDB clusters (downloaded from RCSB PDB)
-        logging.info(f"Prody package path set: {prody_path}")
-        # Download blastclust/mmseq2 clusters
-        fetchPDBClusters()
+    chain_list = get_chain_id_per_residue(pocket_path)
+    unique, counts = np.unique(chain_list, return_counts=True)
+    most_common_chain = max(zip(counts, unique))[1]
+    return most_common_chain.upper()
+
+
+def pdb_check_obsolete(pdb_code):
+    """ Check the status of a pdb, if it is obsolete return the superceding PDB ID else return None """
+    try:
+        r = requests.get(f'https://www.ebi.ac.uk/pdbe/api/pdb/entry/status/{pdb_code}').json()
+    except:
+        logger.info(f"Could not check obsolete status of {pdb_code}")
+        return None
+    if r[pdb_code][0]['status_code'] == 'OBS':
+        pdb_code = r[pdb_code][0]['superceded_by'][0]
+        return pdb_code
     else:
-        logging.info(f"Found existing PDB clusters at {prody_path}")
+        return None
 
 
-def get_clusters(code5_list, code5_to_blastclust=dict()):
-    """
-    Get cluster numbers using RCSB PDB blastclust/mmseq2 files
+class RcsbPdbClusters:
+    def __init__(self, cluster_dir=None, identity=30):
+        self.cluster_dir = cluster_dir if cluster_dir is not None else "/tmp/rcsb-pdbclusters/"
+        self.identity = identity
+        self.clusters = None
 
-    new pdbChain IDs can be assigned to existing clusters by providing a dictionary of code5 (pdbChain) to cluster idx.
-    e.g. {'5upda': 0, '6h1hA': 1}
-    """
-    from prody.proteins import listPDBCluster
+    def download_cluster_sets(self, cluster_file_path):
+        os.makedirs(os.path.dirname(cluster_file_path), exist_ok=True)
+        with closing(request.urlopen(f'ftp://resources.rcsb.org/sequence/clusters/bc-{self.identity}.out')) as r:
+            with open(cluster_file_path, 'wb') as f:
+                shutil.copyfileobj(r, f)
 
-    _prody_fetch_PDB_clusters()
+    def fetch_cluster_file(self):
+        """ load cluster file if found else download and load """
+        cluster_file_path = os.path.join(self.cluster_dir, f"bc-{self.identity}.out")
+        logging.info(f"cluster file path: {cluster_file_path}")
+        if not os.path.exists(cluster_file_path):
+            logging.info("downloading cluster sets")
+            self.download_cluster_sets(cluster_file_path)
 
-    initial_max_cluster = 0  # cluster_num
+        clusters = {}
+        for n, line in enumerate(open(cluster_file_path, 'rb')):
+            line = set(line.decode('ascii').split())
+            clusters[n] = line
+        self.clusters = clusters
 
-    # If assigning clusters to pdbChains among a previous set. Get max cluster_num already assigned.
-    # (e.g. fit Vertex pdbCodes into TOUGH clusters)
-    if len(code5_to_blastclust):
-        # This will error if there are only 'None' values in the cluster dictionary
-        # In this case, the listPDBCluster command is not working.
-        initial_max_cluster = max([v for v in code5_to_blastclust.values() if v != 'None']) + 1
+    def get_seqclust(self, pdbCode, chainId):
+        """ Get sequence cluster ID for a pdbcode chain using RCSB mmseq2/blastclust predefined clusters """
+        # load clusters into dict of sets, download if necessary
+        if self.clusters is None:
+            self.fetch_cluster_file()
 
-    i = initial_max_cluster
-    logging.info(f"Number of clusters before assigning current set: {i}")
+        # e.g. 1ATP_I
+        query_str = f"{pdbCode.upper()}_{chainId.upper()}"
+
+        # search predefined clusters and assign line number from cluster file as cluster
+        query_cluster = None
+        for cluster_id, pdbchain_cluster in self.clusters.items():
+            if query_str in pdbchain_cluster:
+                query_cluster = cluster_id
+                break
+
+        # if query not in predefined set
+        if query_cluster is None:
+            query_cluster = 'None'
+            pdbchain_cluster = set()
+
+        return query_cluster, pdbchain_cluster
+
+
+def get_clusters(code5_list, pdbclusters_dir=None):
+    """ Get cluster numbers using RCSB PDB blastclust/mmseq2 files """
+
+    clustermap = {}
     skipped = []
+    clusterer = RcsbPdbClusters(pdbclusters_dir, identity=30)
     for code5 in code5_list:
         # get cluster for pdb chain combo at 30% sequence identity
         pdb, chain = code5[:4], code5[4:5]
-        try:
-            current_pdb_cluster = listPDBCluster(pdb, chain, 30)
-        except:
-            code5_to_blastclust[code5] = 'None'
+
+        seqclust, _ = clusterer.get_seqclust(pdb, chain)
+        if seqclust == 'None':
+            superceded = pdb_check_obsolete(pdb)
+            if superceded is not None:
+                logging.info(f"Assigning cluster for obsolete entry via superceding: {pdb}->{superceded} {chain}")
+                seqclust, _ = clusterer.get_seqclust(superceded, chain)  # assumes chain is same in superceding entry
+
+        if seqclust == 'None':
+            logging.info(f"unable to assign cluster to {code5}")
             skipped.append(code5)
-            continue
-        # check if any pdbs in this cluster have already been assigned a clusternum
-        clusternum = None
-        for record in current_pdb_cluster:
-            cluster_code5 = record[0].lower() + record[1]
-            if cluster_code5 in code5_to_blastclust:
-                clusternum = code5_to_blastclust[cluster_code5]
-                break
-        # if this pdb has not been assigned a cluster, assign it a cluster id
-        if clusternum is None:
-            clusternum = i
-            i += 1
-        code5_to_blastclust[code5] = clusternum
+
+        clustermap[code5] = seqclust
+
     logger.info(f"Unable to get clusters for {len(skipped)} entries")
-    return code5_to_blastclust
+    return clustermap
