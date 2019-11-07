@@ -121,7 +121,7 @@ class PdbTupleVoxelizedDataset(VoxelizedDataset):
     """ Abstract base class for dataset of tuples of subvolumes of voxelized proteins """
 
     def __init__(self, pos_pairs, neg_pairs, pdb_list, box_size, augm_rot=False, augm_mirror_prob=0.0,
-                 max_sampling_dist=4.0, augm_robustness=False, augm_decoy_prob=0):
+                 max_sampling_dist=4.0, augm_robustness=False, augm_decoy_prob=0, db_pairs_limit=0):
         super().__init__(pdb_list, box_size, augm_rot, augm_mirror_prob)
 
         self._max_sampling_dist = max_sampling_dist
@@ -137,6 +137,9 @@ class PdbTupleVoxelizedDataset(VoxelizedDataset):
         # filter pairs to those supported by pdbs
         self._pos_pairs = list(filter(lambda p: p[0] in self._pdb_map and p[1] in self._pdb_map, pos_pairs))
         self._neg_pairs = list(filter(lambda p: p[0] in self._pdb_map and p[1] in self._pdb_map, neg_pairs))
+        if db_pairs_limit > 0:
+            self._pos_pairs = self._pos_pairs[:db_pairs_limit]
+            self._neg_pairs = self._neg_pairs[:db_pairs_limit]
         logger.info('Dataset positive pairs: %d, negative pairs: %d', len(self._pos_pairs), len(self._neg_pairs))
         num_eff_pdbs = set(
             [p[0] for p in self._pos_pairs] +
@@ -298,13 +301,16 @@ def create_tough_dataset(args, fold_nr, n_folds=5, seed=0, exclude_Vertex_from_t
     random.seed(seed)
     random.shuffle(pos_pairs)
     random.shuffle(neg_pairs)
+    if args.db_size_limit > 0:
+        random.shuffle(pdb_train)
+        pdb_train = pdb_train[:args.db_size_limit]
     random.setstate(rndstate)
 
     train_db = PdbPairVoxelizedDataset(pos_pairs, neg_pairs, pdb_train, box_size=args.patch_size,
                                        augm_rot=args.augm_rot, augm_mirror_prob=args.augm_mirror_prob,
                                        max_sampling_dist=args.augm_sampling_dist,
                                        augm_robustness=args.stability_loss_weight > 0,
-                                       augm_decoy_prob=args.augm_decoy_prob)
+                                       augm_decoy_prob=args.augm_decoy_prob, db_pairs_limit=-args.db_size_limit)
     test_db = PdbPairVoxelizedDataset(pos_pairs, neg_pairs, pdb_test, box_size=args.patch_size, augm_rot=False,
                                       augm_mirror_prob=0.0, max_sampling_dist=args.augm_sampling_dist)
     return train_db, test_db
