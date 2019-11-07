@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import tempfile
 import urllib.request as request
-from contextlib import closing
+from functools import lru_cache
 
 import Bio.PDB as PDB
 import htmd.molecule.molecule as htmdmol
@@ -121,14 +121,9 @@ def htmd_featurizer(pdb_entries, skip_existing=True):
     # - unaddressed warnings info: http://mgldev.scripps.edu/pipermail/mglsupport/2008-December/000091.html
     # - note: http://autodock.scripps.edu/faqs-help/how-to/how-to-prepare-a-receptor-file-for-autodock4
     # - note: http://mgldev.scripps.edu/pipermail/autodock/2008-April/003946.html
-    mgl_command = 'source activate deeplytough_mgltools; pythonsh' \
-                  '$CONDA_PREFIX/MGLToolsPckgs/AutoDockTools/Utilities24/prepare_receptor4.py' \
+    mgl_command = 'source activate deeplytough_mgltools; pythonsh ' \
+                  '$CONDA_PREFIX/MGLToolsPckgs/AutoDockTools/Utilities24/prepare_receptor4.py ' \
                   '-r {} -U nphs_lps_waters -A hydrogens'
-
-    try:
-        subprocess.run(['/bin/bash', '-c',  'source activate deeplytough_mgltools'], check=True)
-    except subprocess.CalledProcessError:
-        mgl_command = mgl_command.replace('source activate', 'conda activate')  # perhaps conda is of a newer date
 
     for entry in pdb_entries:
         pdb_path = entry['protein']
@@ -156,7 +151,7 @@ def htmd_featurizer(pdb_entries, skip_existing=True):
             np.savez(npz_path, channels=channels, coords=coords)
 
         try:
-            subprocess.run(['/bin/bash', '-c', mgl_command.format(pdb_path)], cwd=output_dir, check=True)
+            subprocess.run(['/bin/bash', '-ic', mgl_command.format(pdb_path)], cwd=output_dir, check=True)
             compute_channels()
         except Exception as err1:
             try:
@@ -165,7 +160,7 @@ def htmd_featurizer(pdb_entries, skip_existing=True):
                 with tempfile.TemporaryDirectory() as tmpdirname:
                     pdb2_path = os.path.join(tmpdirname, os.path.basename(pdb_path))
                     subprocess.run(['obabel', pdb_path, '-O', pdb2_path, '-h'], check=True)
-                    subprocess.run(['/bin/bash', '-c', mgl_command.format(pdb2_path)], cwd=output_dir, check=True)
+                    subprocess.run(['/bin/bash', '-ic', mgl_command.format(pdb2_path)], cwd=output_dir, check=True)
                 compute_channels()
             except Exception as err2:
                 logger.exception(err2)
@@ -194,6 +189,7 @@ def voc_ap(rec, prec):
     return ap
 
 
+@lru_cache()
 def get_chain_from_site(pocket_path):
     """get chain ID from site – needed to match clusters to TOUGH clusters"""
 
@@ -208,17 +204,16 @@ def get_chain_from_site(pocket_path):
             logging.warning(f"No such protein pocket file: {path}")
             return ['None']
         except KeyError:
-            logging.warning(f"No such protein pocket file (MODEL LOADING FAILED): {path}")
+            logging.warning(f"Protein pocket loading failed: {path}")
             return ['None']
         resi_lst = [x.get_full_id()[2] for x in model.get_residues()]
         return resi_lst
 
     chain_list = get_chain_id_per_residue(pocket_path)
-    unique, counts = np.unique(chain_list, return_counts=True)
-    most_common_chain = max(zip(counts, unique))[1]
-    return most_common_chain.upper()
+    return set(c.upper() for c in chain_list)
 
 
+@lru_cache()
 def pdb_check_obsolete(pdb_code):
     """ Check the status of a pdb, if it is obsolete return the superceding PDB ID else return None """
     try:
@@ -237,74 +232,35 @@ class RcsbPdbClusters:
     def __init__(self, cluster_dir=None, identity=30):
         self.cluster_dir = cluster_dir if cluster_dir is not None else "/tmp/rcsb-pdbclusters/"
         self.identity = identity
-        self.clusters = None
+        self.clusters = {}
+        self._fetch_cluster_file()
 
-    def download_cluster_sets(self, cluster_file_path):
+    def _download_cluster_sets(self, cluster_file_path):
         os.makedirs(os.path.dirname(cluster_file_path), exist_ok=True)
-        with closing(request.urlopen(f'ftp://resources.rcsb.org/sequence/clusters/bc-{self.identity}.out')) as r:
-            with open(cluster_file_path, 'wb') as f:
-                shutil.copyfileobj(r, f)
+        request.urlretrieve(f'ftp://resources.rcsb.org/sequence/clusters/bc-{self.identity}.out', cluster_file_path)
 
-    def fetch_cluster_file(self):
+    def _fetch_cluster_file(self):
         """ load cluster file if found else download and load """
         cluster_file_path = os.path.join(self.cluster_dir, f"bc-{self.identity}.out")
         logging.info(f"cluster file path: {cluster_file_path}")
         if not os.path.exists(cluster_file_path):
             logging.info("downloading cluster sets")
-            self.download_cluster_sets(cluster_file_path)
+            self._download_cluster_sets(cluster_file_path)
 
-        clusters = {}
         for n, line in enumerate(open(cluster_file_path, 'rb')):
-            line = set(line.decode('ascii').split())
-            clusters[n] = line
-        self.clusters = clusters
+            for id in line.decode('ascii').split():
+                self.clusters[id] = n
 
-    def get_seqclust(self, pdbCode, chainId):
+    def get_seqclust(self, pdbCode, chainId, check_obsolete=True):
         """ Get sequence cluster ID for a pdbcode chain using RCSB mmseq2/blastclust predefined clusters """
-        # load clusters into dict of sets, download if necessary
-        if self.clusters is None:
-            self.fetch_cluster_file()
-
-        # e.g. 1ATP_I
-        query_str = f"{pdbCode.upper()}_{chainId.upper()}"
-
-        # search predefined clusters and assign line number from cluster file as cluster
-        query_cluster = None
-        for cluster_id, pdbchain_cluster in self.clusters.items():
-            if query_str in pdbchain_cluster:
-                query_cluster = cluster_id
-                break
-
-        # if query not in predefined set
-        if query_cluster is None:
-            query_cluster = 'None'
-            pdbchain_cluster = set()
-
-        return query_cluster, pdbchain_cluster
-
-
-def get_clusters(code5_list, pdbclusters_dir=None):
-    """ Get cluster numbers using RCSB PDB blastclust/mmseq2 files """
-
-    clustermap = {}
-    skipped = []
-    clusterer = RcsbPdbClusters(pdbclusters_dir, identity=30)
-    for code5 in code5_list:
-        # get cluster for pdb chain combo at 30% sequence identity
-        pdb, chain = code5[:4], code5[4:5]
-
-        seqclust, _ = clusterer.get_seqclust(pdb, chain)
-        if seqclust == 'None':
-            superceded = pdb_check_obsolete(pdb)
+        query_str = f"{pdbCode.upper()}_{chainId.upper()}"  # e.g. 1ATP_I
+        seqclust = self.clusters.get(query_str, 'None')
+        
+        if check_obsolete and seqclust == 'None':
+            superceded = pdb_check_obsolete(pdbCode)
             if superceded is not None:
-                logging.info(f"Assigning cluster for obsolete entry via superceding: {pdb}->{superceded} {chain}")
-                seqclust, _ = clusterer.get_seqclust(superceded, chain)  # assumes chain is same in superceding entry
-
+                logging.info(f"Assigning cluster for obsolete entry via superceding: {pdbCode}->{superceded} {chainId}")
+                return self.get_seqclust(superceded, chainId, check_obsolete=False)  # assumes chain is same in superceding entry
         if seqclust == 'None':
-            logging.info(f"unable to assign cluster to {code5}")
-            skipped.append(code5)
-
-        clustermap[code5] = seqclust
-
-    logger.info(f"Unable to get clusters for {len(skipped)} entries")
-    return clustermap
+            logging.info(f"unable to assign cluster to {pdbCode}{chainId}")
+        return seqclust

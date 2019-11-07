@@ -1,6 +1,8 @@
 import concurrent.futures
 import logging
 import os
+import pickle
+import string
 import urllib.request
 from collections import defaultdict
 
@@ -9,7 +11,7 @@ from sklearn.metrics import precision_recall_curve, roc_curve, roc_auc_score
 from tqdm.autonotebook import tqdm
 
 from misc.ligand_extract import PocketFromLigandDetector
-from misc.utils import htmd_featurizer, voc_ap, get_clusters, get_chain_from_site
+from misc.utils import htmd_featurizer, voc_ap, RcsbPdbClusters, get_chain_from_site
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +43,25 @@ class Vertex:
         Download pdb files and extract pocket around ligands
         """
         logger.info('Preprocessing: downloading data and extracting pockets, this will take time.')
+        entries = self.get_structures(extra_mappings=False)
+        
+        code5_to_seqclusts = {}
+        clusterer = RcsbPdbClusters(identity=30)        
+        for entry in entries:
+            # # entries are defined by site integers in the vertex set, here we translate to chain ID (letter)
+            #chains = get_chain_from_site(entry['pocket'])
+            chains = string.ascii_uppercase
+            seqclusts = set([clusterer.get_seqclust(entry['code'], c) for c in chains])
+            code5_to_seqclusts[entry['code5']] = seqclusts
+        pickle.dump({'code5_to_seqclusts': code5_to_seqclusts},
+                    open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'Vertex' , 'code5_to_seqclusts.pickle'), 'wb'))        
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            for _ in executor.map(Vertex._download_pdb_and_extract_pocket, self.get_structures()):
+            for _ in executor.map(Vertex._download_pdb_and_extract_pocket, entries):
                 pass
-        htmd_featurizer(self.get_structures(), skip_existing=True)
 
-    def get_structures(self):
+        htmd_featurizer(entries, skip_existing=True)
+
+    def get_structures(self, extra_mappings=True):
         """
         Get list of PDB structures with metainfo
         """
@@ -54,7 +69,7 @@ class Vertex:
         root = os.path.join(os.environ.get('STRUCTURE_DATA_DIR'), 'Vertex')
         npz_root = os.path.join(os.environ.get('STRUCTURE_DATA_DIR'), 'processed/htmd/Vertex')
 
-        # Read in a set of (pdb_chain, uniprot) tuples
+        # Read in a set of (pdb_chain, uniprot, ligand_cc) tuples
         vertex_pdbs = set()
         with open(os.path.join(root, 'protein_pairs.tsv')) as f:
             for i, line in enumerate(f.readlines()):
@@ -63,15 +78,10 @@ class Vertex:
                     vertex_pdbs.add((tokens[0].lower(), tokens[2], tokens[1]))
                     vertex_pdbs.add((tokens[5].lower(), tokens[7], tokens[6]))
 
-        vertex_code5 = []
-        for code5, _, ligand_cc in vertex_pdbs:
-            # entries are defined by site integers in the vertex set, here we translate to chain ID (letter)
-            pocket_path = root + f'/{code5[:4]}/{code5[:4]}_site_{int(code5[5])}.pdb'
-            chain = get_chain_from_site(pocket_path)
-            code5 = str(code5[:4] + chain)
-            vertex_code5.append(code5)
-
-        code5_to_seqclust = get_clusters(vertex_code5)
+        code5_to_seqclusts = None        
+        if extra_mappings:
+            mapping = pickle.load(open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'Vertex', 'code5_to_seqclusts.pickle'), 'rb'))
+            code5_to_seqclusts = mapping['code5_to_seqclusts']
 
         # Generate entries for the Vertex set
         entries = []
@@ -86,7 +96,7 @@ class Vertex:
                 'code': code5[:4],
                 'lig_cc': ligand_cc,
                 'uniprot': uniprot,
-                'seqclust': code5_to_seqclust[vertex_code5[n]]
+                'seqclusts': code5_to_seqclusts[code5] if code5_to_seqclusts else 'None'
             })
         return entries
 

@@ -2,10 +2,11 @@ import os
 import glob
 import pickle
 import requests
+import string
 import concurrent.futures
 import numpy as np
 from sklearn.metrics import roc_curve, roc_auc_score
-from misc.utils import htmd_featurizer, get_clusters, get_chain_from_site
+from misc.utils import htmd_featurizer, RcsbPdbClusters, get_chain_from_site
 from misc.ligand_extract import PocketFromLigandDetector
 
 import logging
@@ -58,16 +59,31 @@ class Prospeccts:
     def preprocess_once(self):
         logger.info('Preprocessing: extracting pockets and obtaining uniprots, this will take time.')
         all_pdbs = glob.glob(os.environ['STRUCTURE_DATA_DIR'] + '/prospeccts/**/*.pdb', recursive=True)
+        
+        code5_to_seqclusts = {}
+        clusterer = RcsbPdbClusters(identity=30)   
+        
+        for entry in all_pdbs:
+            # # entries are defined by site integers in the vertex set, here we translate to chain ID (letter)
+            # chains = get_chain_from_site(entry['pocket'])
+            chains = string.ascii_uppercase
+            seqclusts = set([clusterer.get_seqclust(entry['code'], c) for c in chains])
+            code5_to_seqclusts[entry['code5']] = seqclusts
+
         code_to_uniprot = {}
         with concurrent.futures.ProcessPoolExecutor() as executor:
             for code, uniprot in executor.map(Prospeccts._extract_pocket_and_get_uniprot, all_pdbs):
                 if code:
                     code_to_uniprot[code] = uniprot
 
-        pickle.dump(code_to_uniprot,
-                    open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], '/prospeccts/code_to_uniprot.pickle'), 'wb'))
+        pickle.dump({
+                'code5_to_uniprot': code_to_uniprot,
+                'code5_to_seqclusts': code5_to_seqclusts
+            },
+            open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'wb')
+        )
 
-        htmd_featurizer(self.get_structures(), skip_existing=True)
+        htmd_featurizer(self.get_structures(extra_mappings=False), skip_existing=True)
 
     def _prospeccts_paths(self):
         if self.dbname == 'P1':
@@ -94,7 +110,7 @@ class Prospeccts:
             raise NotImplementedError
         return dir1, dir2, listfn
 
-    def get_structures(self):
+    def get_structures(self, extra_mappings=True):
         """ Get list of PDB structures with metainfo """
         dir1, dir2, listfn = self._prospeccts_paths()
         root = os.path.join(os.environ.get('STRUCTURE_DATA_DIR'), 'prospeccts', dir1)
@@ -106,25 +122,12 @@ class Prospeccts:
                 tokens = line.split(',')
                 db_pdbs.add(tokens[0])
                 db_pdbs.add(tokens[1])
-
-        try:
-            code5_to_uniprot = pickle.load(
-                open(os.path.join(os.environ.get('STRUCTURE_DATA_DIR'), 'prospeccts', 'code_to_uniprot.pickle'), 'rb'))
-        except FileNotFoundError:
-            logger.warning('code_to_uniprot.pickle not found, please call preprocess_once()')
-            code5_to_uniprot = None
-
-        # Get list of pdbChain Ids for the prospeccts set
-        prospeccts_code5 = []
-        for pdb in db_pdbs:
-            pocket_path = os.path.join(root, f'/{dir2}/{pdb}_site_1.pdb')
-            # entries are defined by site integers in the prospeccts sets, here we translate to chain ID (letter)
-            chain = get_chain_from_site(pocket_path)
-            code5 = str(code5[:4] + chain)
-            prospeccts_code5.append(code5)
-
-        # get clusters
-        code5_to_seqclust = get_clusters(prospeccts_code5)
+                
+        code5_to_seqclust, code5_to_uniprot = None, None
+        if extra_mappings:
+            mapping = pickle.load(open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'rb'))
+            code5_to_seqclust = mapping['code5_to_seqclust']
+            code5_to_uniprot = mapping['code5_to_uniprot']
 
         entries = []
         for pdb in db_pdbs:
@@ -136,7 +139,7 @@ class Prospeccts:
                 'code5': pdb,
                 'code': pdb[:4],
                 'uniprot': code5_to_uniprot[pdb] if code5_to_uniprot else 'None',
-                'seqclust': code5_to_seqclust[pdb]
+                'seqclusts': code5_to_seqclust[pdb] if code5_to_seqclust else 'None',
             })
         return entries
 

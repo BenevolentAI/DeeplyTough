@@ -257,7 +257,7 @@ def create_tough_dataset(args, fold_nr, n_folds=5, seed=0, exclude_Vertex_from_t
             vertex_pdbs = set([entry['code'] for entry in vertex])
             pdb_train = list(filter(lambda entry: entry['code'] not in vertex_pdbs, pdb_train))
         elif exclude_Vertex_from_train == 'seqclust':
-            vertex_seqclusts = set([entry['seqclust'] for entry in vertex] + ['None'])
+            vertex_seqclusts = set([c for entry in vertex for c in entry['seqclusts']] + ['None'])
             pdb_train = list(filter(lambda entry: entry['seqclust'] not in vertex_seqclusts, pdb_train))
         else:
             raise NotImplementedError()
@@ -281,7 +281,7 @@ def create_tough_dataset(args, fold_nr, n_folds=5, seed=0, exclude_Vertex_from_t
             prospeccts_pdbs = set([entry['code'] for entry in all_prospeccts])
             pdb_train = list(filter(lambda entry: entry['code'].lower() not in prospeccts_pdbs, pdb_train))
         elif exclude_Prospeccts_from_train == 'seqclust':
-            prospeccts_seqclusts = set([u for entry in all_prospeccts for u in entry['seqclust']] + ['None'])
+            prospeccts_seqclusts = set([c for entry in all_prospeccts for c in entry['seqclusts']] + ['None'])
             pdb_train = list(filter(lambda entry: entry['seqclust'] not in prospeccts_seqclusts, pdb_train))
         else:
             raise NotImplementedError()
