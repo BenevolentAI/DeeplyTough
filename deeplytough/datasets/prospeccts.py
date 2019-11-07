@@ -6,7 +6,7 @@ import string
 import concurrent.futures
 import numpy as np
 from sklearn.metrics import roc_curve, roc_auc_score
-from misc.utils import htmd_featurizer, RcsbPdbClusters
+from misc.utils import htmd_featurizer, RcsbPdbClusters, get_chain_from_site
 from misc.ligand_extract import PocketFromLigandDetector
 
 import logging
@@ -57,26 +57,27 @@ class Prospeccts:
         return fname, result
 
     def preprocess_once(self):
-        logger.info('Preprocessing: extracting pockets and obtaining uniprots, this will take time.')
-        all_pdbs = glob.glob(os.environ['STRUCTURE_DATA_DIR'] + '/prospeccts/**/*.pdb', recursive=True)
-        
-        code5_to_seqclusts = {}
-        clusterer = RcsbPdbClusters(identity=30)   
+        if self.dbname == 'P1':  # batch downloading and mapping together and do it just once, e.g. with P1
+            logger.info('Preprocessing: extracting pockets and obtaining uniprots, this will take time.')
+            all_pdbs = glob.glob(os.environ['STRUCTURE_DATA_DIR'] + '/prospeccts/**/*.pdb', recursive=True)
+            
+            code5_to_seqclusts = {}
+            clusterer = RcsbPdbClusters(identity=30)   
 
-        code5_to_uniprot = {}
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            for code, uniprot in executor.map(Prospeccts._extract_pocket_and_get_uniprot, all_pdbs):
-                if code:
-                    code5_to_uniprot[code] = uniprot
-                    seqclusts = set([clusterer.get_seqclust(code[:4], c) for c in string.ascii_uppercase])
-                    code5_to_seqclusts[code] = seqclusts                    
+            code5_to_uniprot = {}
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                for code, uniprot in executor.map(Prospeccts._extract_pocket_and_get_uniprot, all_pdbs):
+                    if code:
+                        code5_to_uniprot[code] = uniprot
+                        seqclusts = set([clusterer.get_seqclust(code[:4], c) for c in string.ascii_uppercase])
+                        code5_to_seqclusts[code] = seqclusts                    
 
-        pickle.dump({
-                'code5_to_uniprot': code5_to_uniprot,
-                'code5_to_seqclusts': code5_to_seqclusts
-            },
-            open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'wb')
-        )
+            pickle.dump({
+                    'code5_to_uniprot': code5_to_uniprot,
+                    'code5_to_seqclusts': code5_to_seqclusts
+                },
+                open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'wb')
+            )
 
         htmd_featurizer(self.get_structures(extra_mappings=False), skip_existing=True)
 
@@ -118,10 +119,10 @@ class Prospeccts:
                 db_pdbs.add(tokens[0])
                 db_pdbs.add(tokens[1])
                 
-        code5_to_seqclust, code5_to_uniprot = None, None
+        code5_to_seqclusts, code5_to_uniprot = None, None
         if extra_mappings:
             mapping = pickle.load(open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'rb'))
-            code5_to_seqclust = mapping['code5_to_seqclust']
+            code5_to_seqclusts = mapping['code5_to_seqclusts']
             code5_to_uniprot = mapping['code5_to_uniprot']
 
         entries = []
@@ -134,7 +135,7 @@ class Prospeccts:
                 'code5': pdb,
                 'code': pdb[:4],
                 'uniprot': code5_to_uniprot[pdb] if code5_to_uniprot else 'None',
-                'seqclusts': code5_to_seqclust[pdb] if code5_to_seqclust else 'None',
+                'seqclusts': code5_to_seqclusts[pdb] if code5_to_seqclusts else 'None',
             })
         return entries
 
