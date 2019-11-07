@@ -6,7 +6,7 @@ import string
 import concurrent.futures
 import numpy as np
 from sklearn.metrics import roc_curve, roc_auc_score
-from misc.utils import htmd_featurizer, RcsbPdbClusters, get_chain_from_site
+from misc.utils import htmd_featurizer, RcsbPdbClusters
 from misc.ligand_extract import PocketFromLigandDetector
 
 import logging
@@ -23,7 +23,30 @@ class Prospeccts:
         self.dbname = dbname
 
     @staticmethod
-    def _extract_pocket_and_get_uniprot(pdbpath):
+    def _get_pdb_code_from_raw_pdb(pdbpath):
+        search_string = os.path.basename(pdbpath)[:2]
+        logger.info(f'searching for pdb id using string: {search_string}')
+        with open(pdbpath, 'r') as f:
+            g = f.readlines()
+            pdb_code = None
+            while pdb_code is None and len(g):
+                line = g.pop(0)
+                for s in line.split():
+                    if search_string in s:
+                        maybe_code = s[:4]
+                        # check this is a real NMR pdb code
+                        try:
+                            logger.info(f"checking whether {maybe_code} is a real NMR entry in the PDB")
+                            r = requests.get(f"https://www.ebi.ac.uk/pdbe/api/pdb/entry/experiment/{maybe_code}")
+                            exp = r.json()[maybe_code][0]['experimental_method']
+                        except Exception as e:
+                            continue
+                        # if pdb is real, and the experimental method is NMR. Eureka!
+                        if "NMR" in exp:
+                            pdb_code = maybe_code
+        return pdb_code
+
+    def _extract_pocket_and_get_uniprot(self, pdbpath):
         fname = os.path.basename(pdbpath).split('.')[0]
         if '_' in fname:
             return None, None
@@ -37,6 +60,14 @@ class Prospeccts:
         pdb_code = fname[:4].lower()
         query_chain_id = fname[4].upper() if len(fname) > 4 else ''
         result = set()
+
+        # 2b) In the case of NMR structures, Prospeccts has incomplete PDB IDs (e.g. 'cz00A' is really '1cz2 00 A')
+        # Therefore for this dataset, try to get the full PDB ID from the raw PDB text
+        if "NMR_structures" in pdbpath:
+            pdb_code = self._get_pdb_code_from_raw_pdb(pdbpath)
+            if not pdb_code:
+                pdb_code = 'XXXX'
+
         try:
             r = requests.get(f'http://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{pdb_code}')
             fam = r.json()[pdb_code]['UniProt']
@@ -60,6 +91,7 @@ class Prospeccts:
         if self.dbname == 'P1':  # batch downloading and mapping together and do it just once, e.g. with P1
             logger.info('Preprocessing: extracting pockets and obtaining uniprots, this will take time.')
             all_pdbs = glob.glob(os.environ['STRUCTURE_DATA_DIR'] + '/prospeccts/**/*.pdb', recursive=True)
+            all_pdbs = [pdb for pdb in all_pdbs if (pdb.count('_site') + pdb.count('_lig') + pdb.count('_clean')) == 0]
             
             code5_to_seqclusts = {}
             clusterer = RcsbPdbClusters(identity=30)   
@@ -76,7 +108,7 @@ class Prospeccts:
                     'code5_to_uniprot': code5_to_uniprot,
                     'code5_to_seqclusts': code5_to_seqclusts
                 },
-                open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'wb')
+                open(os.environ['STRUCTURE_DATA_DIR'] + '/prospeccts/code_to_uniprot.pickle', 'wb')
             )
 
         htmd_featurizer(self.get_structures(extra_mappings=False), skip_existing=True)
@@ -121,7 +153,7 @@ class Prospeccts:
                 
         code5_to_seqclusts, code5_to_uniprot = None, None
         if extra_mappings:
-            mapping = pickle.load(open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'rb'))
+            mapping = pickle.load(open(os.environ['STRUCTURE_DATA_DIR'] + '/prospeccts/code_to_uniprot.pickle', 'rb'))
             code5_to_seqclusts = mapping['code5_to_seqclusts']
             code5_to_uniprot = mapping['code5_to_uniprot']
 

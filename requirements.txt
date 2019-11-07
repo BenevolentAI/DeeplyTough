@@ -9,4 +9,3 @@ transforms3d
 matplotlib
 requests
 cython
-prody
