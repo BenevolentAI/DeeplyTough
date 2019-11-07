@@ -190,30 +190,6 @@ def voc_ap(rec, prec):
 
 
 @lru_cache()
-def get_chain_from_site(pocket_path):
-    """get chain ID from site – needed to match clusters to TOUGH clusters"""
-
-    def get_chain_id_per_residue(path):
-        """returns list of chains present in the input PDB"""
-        # parse structure object (permissive flag ignores common errors)
-        # loop through all atoms and add unique residues to resiList
-        p = PDB.PDBParser(PERMISSIVE=1, QUIET=True)
-        try:
-            model = p.get_structure('pocket', path)[0]  # load structure and get model
-        except FileNotFoundError:
-            logging.warning(f"No such protein pocket file: {path}")
-            return ['None']
-        except KeyError:
-            logging.warning(f"Protein pocket loading failed: {path}")
-            return ['None']
-        resi_lst = [x.get_full_id()[2] for x in model.get_residues()]
-        return resi_lst
-
-    chain_list = get_chain_id_per_residue(pocket_path)
-    return set(c.upper() for c in chain_list)
-
-
-@lru_cache()
 def pdb_check_obsolete(pdb_code):
     """ Check the status of a pdb, if it is obsolete return the superceding PDB ID else return None """
     try:

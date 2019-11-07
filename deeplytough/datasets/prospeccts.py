@@ -6,7 +6,7 @@ import string
 import concurrent.futures
 import numpy as np
 from sklearn.metrics import roc_curve, roc_auc_score
-from misc.utils import htmd_featurizer, RcsbPdbClusters, get_chain_from_site
+from misc.utils import htmd_featurizer, RcsbPdbClusters
 from misc.ligand_extract import PocketFromLigandDetector
 
 import logging
@@ -62,22 +62,17 @@ class Prospeccts:
         
         code5_to_seqclusts = {}
         clusterer = RcsbPdbClusters(identity=30)   
-        
-        for entry in all_pdbs:
-            # # entries are defined by site integers in the vertex set, here we translate to chain ID (letter)
-            # chains = get_chain_from_site(entry['pocket'])
-            chains = string.ascii_uppercase
-            seqclusts = set([clusterer.get_seqclust(entry['code'], c) for c in chains])
-            code5_to_seqclusts[entry['code5']] = seqclusts
 
-        code_to_uniprot = {}
+        code5_to_uniprot = {}
         with concurrent.futures.ProcessPoolExecutor() as executor:
             for code, uniprot in executor.map(Prospeccts._extract_pocket_and_get_uniprot, all_pdbs):
                 if code:
-                    code_to_uniprot[code] = uniprot
+                    code5_to_uniprot[code] = uniprot
+                    seqclusts = set([clusterer.get_seqclust(code[:4], c) for c in string.ascii_uppercase])
+                    code5_to_seqclusts[code] = seqclusts                    
 
         pickle.dump({
-                'code5_to_uniprot': code_to_uniprot,
+                'code5_to_uniprot': code5_to_uniprot,
                 'code5_to_seqclusts': code5_to_seqclusts
             },
             open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'wb')

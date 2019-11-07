@@ -11,7 +11,7 @@ from sklearn.metrics import precision_recall_curve, roc_curve, roc_auc_score
 from tqdm.autonotebook import tqdm
 
 from misc.ligand_extract import PocketFromLigandDetector
-from misc.utils import htmd_featurizer, voc_ap, RcsbPdbClusters, get_chain_from_site
+from misc.utils import htmd_featurizer, voc_ap, RcsbPdbClusters
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +48,7 @@ class Vertex:
         code5_to_seqclusts = {}
         clusterer = RcsbPdbClusters(identity=30)        
         for entry in entries:
-            # # entries are defined by site integers in the vertex set, here we translate to chain ID (letter)
-            #chains = get_chain_from_site(entry['pocket'])
-            chains = string.ascii_uppercase
-            seqclusts = set([clusterer.get_seqclust(entry['code'], c) for c in chains])
+            seqclusts = set([clusterer.get_seqclust(entry['code'], c) for c in string.ascii_uppercase])
             code5_to_seqclusts[entry['code5']] = seqclusts
         pickle.dump({'code5_to_seqclusts': code5_to_seqclusts},
                     open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'Vertex' , 'code5_to_seqclusts.pickle'), 'wb'))        
