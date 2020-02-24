@@ -39,7 +39,7 @@ def main():
     _, entries = database.get_structures_splits(args.cvfold, strategy=args.db_split_strategy,
                                                 n_folds=args.num_folds, seed=args.cvseed)
 
-    # Get matcher and perform any necessary pre-compututations
+    # Get matcher and perform any necessary pre-computations
     if args.alg == 'DeeplyTough':
         matcher = DeeplyTough(args.net, device=args.device, batch_size=args.batch_size, nworkers=args.nworkers)
         if matcher.args.seed != args.cvseed or matcher.args.cvfold != args.cvfold:

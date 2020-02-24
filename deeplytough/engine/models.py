@@ -57,13 +57,13 @@ class VoxelNetwork(nn.Module):
 
                 if isinstance(nfeat, int):
                     nfeat = (nfeat,)
-                    nfeato = (nfeato, mult1, mult2, mult3)
+                    nfeato = tuple([n for n in (nfeato, mult1, mult2, mult3) if n > 0])
                     activation = (None, nnf.sigmoid)
                 elif mult1 <= 0:
                     nfeato = (nfeato,)
                     activation = None
                 else:
-                    nfeato = (nfeato, mult1, mult2, mult3)
+                    nfeato = tuple([n for n in (nfeato, mult1, mult2, mult3) if n > 0])
                     activation = (nnf.relu, nnf.sigmoid)
 
                 conv = GatedBlock(nfeat, nfeato, size=kernel_size, padding=padding, stride=stride,

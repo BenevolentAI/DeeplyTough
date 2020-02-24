@@ -1,6 +1,6 @@
 # DeeplyTough
 
-This is the official PyTorch implementation of our paper *DeeplyTough: Learning Structural Comparison of Protein Binding Sites*, available from <https://www.biorxiv.org/content/10.1101/600304v1>.
+This is the official PyTorch implementation of our paper *DeeplyTough: Learning Structural Comparison of Protein Binding Sites*, available from <https://pubs.acs.org/doi/abs/10.1021/acs.jcim.9b00554>.
 
 ![DeeplyTough overview figure](overview.png?raw=true "DeeplyTough overview figure.")
 
@@ -89,7 +89,7 @@ Training requires a GPU with >=11GB of memory and takes about 1.5 days on recent
 
 * Training for TOUGH-M1 evaluation: 
 ```bash
-python $DEEPLYTOUGH/deeplytough/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forTough --device 'cuda:0' --seed 7
+python $DEEPLYTOUGH/deeplytough/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forTough --device 'cuda:0' --seed 4
 ```
 
 * Training for Vertex evaluation:
@@ -99,12 +99,16 @@ python $DEEPLYTOUGH/deeplytough/scripts/train.py --output_dir $DEEPLYTOUGH/resul
 
 * Training for ProSPECCTs evaluation:
 ```bash
-python $DEEPLYTOUGH/deeplytough/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forProspeccts --device 'cuda:0' --db_exclude_prospeccts 'uniprot' --db_split_strategy 'none'
+python $DEEPLYTOUGH/deeplytough/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forProspeccts --device 'cuda:0' --db_exclude_prospeccts 'uniprot' --db_split_strategy 'none' --model_config 'se_4_4_4_4_7_3_2_batch_1,se_8_8_8_8_3_1_1_batch_1,se_16_16_16_16_3_1_2_batch_1,se_32_32_32_32_3_0_1_batch_1,se_256_0_0_0_3_0_2_batch_1,r,b,c_128_1'
 ```
 
 Note that due to non-determinism inherent to the currently established process of training deep networks, it is nearly impossible to exactly reproduce the pre-trained networks in `networks` directory.
 
 Also note the convenience of an output directory containing "TTTT" will afford this substring being replaced by the current `datetime`.
+
+## Changelog
+
+- 23.02.2020: Updated code to follow our revised [JCIM paper](https://pubs.acs.org/doi/abs/10.1021/acs.jcim.9b00554), in particular away moving from UniProt-based splitting strategy as in our [BioRxiv](https://www.biorxiv.org/content/10.1101/600304v1) paper to sequence-based clustering approach whereby protein structures sharing more than 30% sequence identity are always allocated to the same testing/training set. We have also made data pre-processing more robust and fixed the version of several dependencies.
 
 ## License Terms
 

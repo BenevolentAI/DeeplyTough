@@ -56,8 +56,8 @@ def get_cli_args():
     parser.add_argument('--augm_decoy_prob', default=0.1, type=float, help='Training augmentation: Probability of negative decoy')
     parser.add_argument('--patch_size', default=24, type=int, help='Patch size for training')
     parser.add_argument('--input_normalization', default=1, type=int, help='Bool: whether to normalize input statistics')
-    parser.add_argument('--db_exclude_vertex', default='', type=str, help='Whether to exclude Vertex dataset proteins in the training fold: (seqclust|uniprot|pdb)')
-    parser.add_argument('--db_exclude_prospeccts', default='', type=str, help='Whether to exclude Prospeccts dataset proteins in the training fold: (|uniprot|pdb)')
+    parser.add_argument('--db_exclude_vertex', default='', type=str, help='Whether to exclude Vertex dataset proteins in the training fold: (|seqclust|uniprot|pdb)')
+    parser.add_argument('--db_exclude_prospeccts', default='', type=str, help='Whether to exclude Prospeccts dataset proteins in the training fold: (|seqclust|uniprot|pdb)')
     parser.add_argument('--db_split_strategy', default='seqclust', help="pdb_folds|uniprot_folds|seqclust|none")
     parser.add_argument('--db_preprocessing', default=0, type=int, help='Bool: whether to run preprocessing for the dataset')
     parser.add_argument('--db_size_limit', default=0, type=int, help='Artification restriction of database size, either on # pdbs (>0) or # pairs (<0)')
@@ -68,6 +68,7 @@ def get_cli_args():
     parser.add_argument('--l2_normed_descriptors', default=1, type=int, help='L2-normalize descriptors/network outputs')
     parser.add_argument('--loss_margin', default=1.0, type=float, help='Margin in hinge losses')
     parser.add_argument('--stability_loss_weight', default=1.0, type=float, help='Weight of augmentation invariance loss')
+    parser.add_argument('--stability_loss_squared', default=0, type=int, help='Augmentation invariance loss distances squared (1) or not (0)')
 
     args = parser.parse_args()
     args.start_epoch = 0
@@ -228,7 +229,10 @@ def compute_loss(args, outputs, targets, training):
         # every odd entry in the batch is a perturbed version of the previous even entry
         a = outputs[:, 0::2].view(-1, outputs.shape[-1])
         b = outputs[:, 1::2].view(-1, outputs.shape[-1])
-        loss_stabil = nnf.pairwise_distance(a, b).mean()
+        if args.stability_loss_squared:
+            loss_stabil = nnf.pairwise_distance(a, b).pow(2).mean()
+        else:
+            loss_stabil = nnf.pairwise_distance(a, b).mean()
         # continue with just the even ones
         outputs = outputs[:, 0::2]
     else:

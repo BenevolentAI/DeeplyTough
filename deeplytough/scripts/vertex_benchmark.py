@@ -34,7 +34,7 @@ def main():
     # Retrieve structures
     entries = database.get_structures()
 
-    # Get matcher and perform any necessary pre-compututations
+    # Get matcher and perform any necessary pre-computations
     if args.alg == 'DeeplyTough':
         matcher = DeeplyTough(args.net, device=args.device, batch_size=args.batch_size, nworkers=args.nworkers)
         entries = matcher.precompute_descriptors(entries)

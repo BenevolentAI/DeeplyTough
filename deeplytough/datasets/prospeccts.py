@@ -5,8 +5,8 @@ import requests
 import string
 import concurrent.futures
 import numpy as np
-from sklearn.metrics import roc_curve, roc_auc_score
-from misc.utils import htmd_featurizer, RcsbPdbClusters
+from sklearn.metrics import precision_recall_curve, roc_curve, roc_auc_score
+from misc.utils import htmd_featurizer, voc_ap, RcsbPdbClusters
 from misc.ligand_extract import PocketFromLigandDetector
 
 import logging
@@ -92,7 +92,7 @@ class Prospeccts:
             logger.info('Preprocessing: extracting pockets and obtaining uniprots, this will take time.')
             all_pdbs = glob.glob(os.environ['STRUCTURE_DATA_DIR'] + '/prospeccts/**/*.pdb', recursive=True)
             all_pdbs = [pdb for pdb in all_pdbs if (pdb.count('_site') + pdb.count('_lig') + pdb.count('_clean')) == 0]
-            
+
             code5_to_seqclusts = {}
             clusterer = RcsbPdbClusters(identity=30)   
 
@@ -108,7 +108,7 @@ class Prospeccts:
                     'code5_to_uniprot': code5_to_uniprot,
                     'code5_to_seqclusts': code5_to_seqclusts
                 },
-                open(os.environ['STRUCTURE_DATA_DIR'] + '/prospeccts/code_to_uniprot.pickle', 'wb')
+                open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'wb')
             )
 
         htmd_featurizer(self.get_structures(extra_mappings=False), skip_existing=True)
@@ -153,7 +153,7 @@ class Prospeccts:
                 
         code5_to_seqclusts, code5_to_uniprot = None, None
         if extra_mappings:
-            mapping = pickle.load(open(os.environ['STRUCTURE_DATA_DIR'] + '/prospeccts/code_to_uniprot.pickle', 'rb'))
+            mapping = pickle.load(open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'rb'))
             code5_to_seqclusts = mapping['code5_to_seqclusts']
             code5_to_uniprot = mapping['code5_to_uniprot']
 
@@ -209,8 +209,14 @@ class Prospeccts:
         # Calculate metrics
         fpr, tpr, roc_thresholds = roc_curve(positives_clean, scores_clean)
         auc = roc_auc_score(positives_clean, scores_clean)
+        precision, recall, thresholds = precision_recall_curve(positives_clean, scores_clean)
+        ap = voc_ap(recall[::-1], precision[::-1])
 
         results = {
+            'ap': ap,
+            'pr': precision,
+            're': recall,
+            'th': thresholds,
             'auc': auc,
             'fpr': fpr,
             'tpr': tpr,

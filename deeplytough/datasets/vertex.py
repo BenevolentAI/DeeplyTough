@@ -48,7 +48,9 @@ class Vertex:
         code5_to_seqclusts = {}
         clusterer = RcsbPdbClusters(identity=30)        
         for entry in entries:
-            seqclusts = set([clusterer.get_seqclust(entry['code'], c) for c in string.ascii_uppercase])
+            # entries are defined by site integers in the vertex set
+            chains = string.ascii_uppercase  # play it safe and take all possible chains for a protein
+            seqclusts = set([clusterer.get_seqclust(entry['code'], c) for c in chains])
             code5_to_seqclusts[entry['code5']] = seqclusts
         pickle.dump({'code5_to_seqclusts': code5_to_seqclusts},
                     open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'Vertex' , 'code5_to_seqclusts.pickle'), 'wb'))        
@@ -141,9 +143,12 @@ class Vertex:
                 if np.isfinite(complete_scores[i, j]):
                     sel_scores.append(complete_scores[i, j])
 
-            positives.append(prot_positives[key])
-            keys_out.append(key)
-            scores.append(max(sel_scores))
+            if len(sel_scores) > 0:
+                positives.append(prot_positives[key])
+                keys_out.append(key)
+                scores.append(max(sel_scores))
+            else:
+                logger.warning(f'Skipping a pair, could not be evaluated')
 
         # Calculate metrics
         fpr, tpr, roc_thresholds = roc_curve(positives, scores)
