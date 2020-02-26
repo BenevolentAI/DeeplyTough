@@ -314,3 +314,98 @@ def create_tough_dataset(args, fold_nr, n_folds=5, seed=0, exclude_Vertex_from_t
     test_db = PdbPairVoxelizedDataset(pos_pairs, neg_pairs, pdb_test, box_size=args.patch_size, augm_rot=False,
                                       augm_mirror_prob=0.0, max_sampling_dist=args.augm_sampling_dist)
     return train_db, test_db
+
+
+def create_prospeccts_dataset(args, fold_nr, n_folds=5, seed=0, exclude_Tough_from_train=False,
+                              exclude_Vertex_from_train=False):
+    pos_pairs, neg_pairs, pairs_set = [], [], set()
+    pdb_train, entries_set = [], set()
+
+    if args.db_preprocessing:
+        for dbname in Prospeccts.dbnames:
+            Prospeccts(dbname).preprocess_once()
+
+    for dbname in Prospeccts.dbnames:
+        db = Prospeccts(dbname)
+        for entry in db.get_structures():
+            if entry['code'] not in entries_set:
+                entries_set.add(entry['code'])
+                if len(entry['seqclusts']) > 1:
+                    entry['seqclusts'].remove('None')  # this works around a bug of including responses of calls to get_seqclust() even for invalid chains.
+                pdb_train.append(entry)
+
+        dir1, dir2, listfn = db._prospeccts_paths()
+        root = os.path.join(os.environ.get('STRUCTURE_DATA_DIR'), 'prospeccts', dir1)
+        with open(os.path.join(root, listfn)) as f:
+            for line in f.readlines():
+                tokens = line.split(',')
+                id1, id2, cls = tokens[0], tokens[1], tokens[2].strip()
+                key = (id1,id2) if id1 < id2 else (id2,id1)
+                if key not in pairs_set:
+                    pairs_set.add(key)
+                    if cls == 'active':
+                        pos_pairs.append((id1, id2))
+                    else:
+                        neg_pairs.append((id1, id2))
+                        
+    # Tough
+    if exclude_Tough_from_train:
+        if args.db_preprocessing:
+            ToughM1().preprocess_once()
+
+        # Get Tough dataset
+        tough = ToughM1().get_structures()
+
+        # Exclude entries from prospeccts set that exist in the tough set
+        logger.info(f'Prospeccts before Tough filter {len(pdb_train)}')
+        if exclude_Tough_from_train == 'uniprot':
+            tough_ups = set([entry['uniprot'] for entry in tough] + ['None'])
+            pdb_train = list(filter(lambda entry: entry['uniprot'] not in tough_ups, pdb_train))
+        elif exclude_Tough_from_train == 'pdb':
+            tough_pdbs = set([entry['code'] for entry in tough])
+            pdb_train = list(filter(lambda entry: entry['code'] not in tough_pdbs, pdb_train))
+        elif exclude_Tough_from_train == 'seqclust':
+            tough_seqclusts = set([entry['seqclust'] for entry in tough] + ['None'])
+            pdb_train = list(filter(lambda entry: not (entry['seqclusts'] & tough_seqclusts), pdb_train))
+        else:
+            raise NotImplementedError()
+        logger.info(f'After Tough filter {len(pdb_train)}')                          
+                        
+    # Vertex
+    if exclude_Vertex_from_train:
+        if args.db_preprocessing:
+            Vertex().preprocess_once()
+
+        # Get Vertex dataset
+        vertex = Vertex().get_structures()
+
+        # Exclude entries from prospeccts set that exist in the vertex set
+        logger.info(f'Prospeccts before Vertex filter {len(pdb_train)}')
+        if exclude_Vertex_from_train == 'uniprot':
+            vertex_ups = set([entry['uniprot'] for entry in vertex] + ['None'])
+            pdb_train = list(filter(lambda entry: entry['uniprot'] not in vertex_ups, pdb_train))
+        elif exclude_Vertex_from_train == 'pdb':
+            vertex_pdbs = set([entry['code'] for entry in vertex])
+            pdb_train = list(filter(lambda entry: entry['code'] not in vertex_pdbs, pdb_train))
+        elif exclude_Vertex_from_train == 'seqclust':
+            vertex_seqclusts = set([c for entry in vertex for c in entry['seqclusts']] + ['None'])
+            pdb_train = list(filter(lambda entry: not (entry['seqclusts'] & vertex_seqclusts), pdb_train))
+        else:
+            raise NotImplementedError()
+        logger.info(f'After Vertex filter {len(pdb_train)}')                        
+
+    # Apply random seed, shuffle pairs and then return to original unseeded random state
+    rndstate = random.getstate()
+    random.seed(seed)
+    random.shuffle(pos_pairs)
+    random.shuffle(neg_pairs)
+    random.setstate(rndstate)
+    
+    train_db = PdbPairVoxelizedDataset(pos_pairs, neg_pairs, pdb_train, box_size=args.patch_size,
+                                       augm_rot=args.augm_rot, augm_mirror_prob=args.augm_mirror_prob,
+                                       max_sampling_dist=args.augm_sampling_dist,
+                                       augm_robustness=args.stability_loss_weight > 0,
+                                       augm_decoy_prob=args.augm_decoy_prob, db_pairs_limit=-args.db_size_limit)
+    test_db = PdbPairVoxelizedDataset(pos_pairs, neg_pairs, pdb_train, box_size=args.patch_size, augm_rot=False,
+                                      augm_mirror_prob=0.0, max_sampling_dist=args.augm_sampling_dist)
+    return train_db, test_db

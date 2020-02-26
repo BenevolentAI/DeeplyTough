@@ -17,7 +17,7 @@ from tensorboardX import SummaryWriter
 from torch.optim.lr_scheduler import MultiStepLR
 from tqdm import tqdm
 
-from engine.datasets import create_tough_dataset
+from engine.datasets import create_tough_dataset, create_prospeccts_dataset
 from engine.models import create_model
 
 logging.basicConfig(level=logging.INFO)
@@ -61,6 +61,8 @@ def get_cli_args():
     parser.add_argument('--db_split_strategy', default='seqclust', help="pdb_folds|uniprot_folds|seqclust|none")
     parser.add_argument('--db_preprocessing', default=0, type=int, help='Bool: whether to run preprocessing for the dataset')
     parser.add_argument('--db_size_limit', default=0, type=int, help='Artification restriction of database size, either on # pdbs (>0) or # pairs (<0)')
+    parser.add_argument('--db_exclude_tough', default='', type=str, help='Whether to exclude Tough dataset proteins in the Prospeccts set for training: (|seqclust|uniprot|pdb)')
+    
 
     # Model
     parser.add_argument('--model_config', default='se_16_16_16_16_7_3_2_batch_1,se_32_32_32_32_3_1_1_batch_1,se_48_48_48_48_3_1_2_batch_1,se_64_64_64_64_3_0_1_batch_1,se_256_0_0_0_3_0_2_batch_1,r,b,c_128_1', help='Defines the model as a sequence of layers.')
@@ -90,10 +92,16 @@ def main():
     device = torch.device(args.device)
     writer = SummaryWriter(args.output_dir)
 
-    train_dataset, test_dataset = create_tough_dataset(
-        args, fold_nr=args.cvfold, n_folds=args.num_folds, seed=args.seed,
-        exclude_Vertex_from_train=args.db_exclude_vertex, exclude_Prospeccts_from_train=args.db_exclude_prospeccts
-    )
+    if args.db_split_strategy == 'prospeccts':
+        train_dataset, test_dataset = create_prospeccts_dataset(
+            args, fold_nr=args.cvfold, n_folds=args.num_folds, seed=args.seed,
+            exclude_Vertex_from_train=args.db_exclude_vertex, exclude_Tough_from_train=args.db_exclude_tough
+        )    
+    else:
+        train_dataset, test_dataset = create_tough_dataset(
+            args, fold_nr=args.cvfold, n_folds=args.num_folds, seed=args.seed,
+            exclude_Vertex_from_train=args.db_exclude_vertex, exclude_Prospeccts_from_train=args.db_exclude_prospeccts
+        )
     logger.info('Train set size: %d, test set size: %d', len(train_dataset), len(test_dataset))
 
     # Create model and optimizer (or resume pre-existing)

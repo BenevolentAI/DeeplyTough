@@ -4,7 +4,7 @@ import os
 import pickle
 
 from datasets import Prospeccts
-from matchers import DeeplyTough
+from matchers import DeeplyTough, TMAlign
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,6 +42,8 @@ def main():
         if args.alg == 'DeeplyTough':
             matcher = DeeplyTough(args.net, device=args.device, batch_size=args.batch_size, nworkers=args.nworkers)
             entries = matcher.precompute_descriptors(entries)
+        elif args.alg == 'TMAlign':
+            matcher = TMAlign(args.nworkers)             
         else:
             raise NotImplementedError
 

@@ -18,33 +18,10 @@ class Prospeccts:
     """ ProSPECCTs dataset by Ehrt et al (http://www.ccb.tu-dortmund.de/ag-koch/prospeccts/) """
 
     dbnames = ['P1', 'P1.2', 'P2', 'P3', 'P4', 'P5', 'P5.2', 'P6', 'P6.2', 'P7']
+    #dbnames = ['P3.1', 'P3.2', 'P3.3', 'P3.4', 'P4.1', 'P4.2', 'P4.3', 'P4.4']
 
     def __init__(self, dbname):
         self.dbname = dbname
-
-    @staticmethod
-    def _get_pdb_code_from_raw_pdb(pdbpath):
-        search_string = os.path.basename(pdbpath)[:2]
-        logger.info(f'searching for pdb id using string: {search_string}')
-        with open(pdbpath, 'r') as f:
-            g = f.readlines()
-            pdb_code = None
-            while pdb_code is None and len(g):
-                line = g.pop(0)
-                for s in line.split():
-                    if search_string in s:
-                        maybe_code = s[:4]
-                        # check this is a real NMR pdb code
-                        try:
-                            logger.info(f"checking whether {maybe_code} is a real NMR entry in the PDB")
-                            r = requests.get(f"https://www.ebi.ac.uk/pdbe/api/pdb/entry/experiment/{maybe_code}")
-                            exp = r.json()[maybe_code][0]['experimental_method']
-                        except Exception as e:
-                            continue
-                        # if pdb is real, and the experimental method is NMR. Eureka!
-                        if "NMR" in exp:
-                            pdb_code = maybe_code
-        return pdb_code
 
     @staticmethod
     def _extract_pocket_and_get_uniprot(pdbpath):
@@ -61,14 +38,6 @@ class Prospeccts:
         pdb_code = fname[:4].lower()
         query_chain_id = fname[4].upper() if len(fname) > 4 else ''
         result = set()
-
-        # 2b) In the case of NMR structures, Prospeccts has incomplete PDB IDs (e.g. 'cz00A' is really '1cz2 00 A')
-        # Therefore for this dataset, try to get the full PDB ID from the raw PDB text
-        if "NMR_structures" in pdbpath:
-            pdb_code = Prospeccts._get_pdb_code_from_raw_pdb(pdbpath)
-            if not pdb_code:
-                pdb_code = 'XXXX'
-
         try:
             r = requests.get(f'http://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{pdb_code}')
             fam = r.json()[pdb_code]['UniProt']
@@ -135,6 +104,24 @@ class Prospeccts:
             dir1, dir2, listfn = 'barelier_structures', 'barelier_structures_cofactors', 'barelier_structures.csv'
         elif self.dbname == 'P7':
             dir1, dir2, listfn = 'review_structures', 'review_structures', 'review_structures.csv'
+            
+        elif self.dbname == 'P3.1':
+            dir1, dir2, listfn = 'decoy', 'decoy_structures', 'decoy_structures1.csv'
+        elif self.dbname == 'P3.2':
+            dir1, dir2, listfn = 'decoy', 'decoy_structures', 'decoy_structures2.csv'
+        elif self.dbname == 'P3.3':
+            dir1, dir2, listfn = 'decoy', 'decoy_structures', 'decoy_structures3.csv'
+        elif self.dbname == 'P3.4':
+            dir1, dir2, listfn = 'decoy', 'decoy_structures', 'decoy_structures4.csv'            
+        elif self.dbname == 'P4.1':
+            dir1, dir2, listfn = 'decoy', 'decoy_shape_structures', 'decoy_structures1.csv'
+        elif self.dbname == 'P4.2':
+            dir1, dir2, listfn = 'decoy', 'decoy_shape_structures', 'decoy_structures2.csv'            
+        elif self.dbname == 'P4.3':
+            dir1, dir2, listfn = 'decoy', 'decoy_shape_structures', 'decoy_structures3.csv'
+        elif self.dbname == 'P4.4':
+            dir1, dir2, listfn = 'decoy', 'decoy_shape_structures', 'decoy_structures4.csv'
+            
         else:
             raise NotImplementedError
         return dir1, dir2, listfn

@@ -4,7 +4,7 @@ import os
 import pickle
 
 from datasets import Vertex
-from matchers import DeeplyTough
+from matchers import DeeplyTough, TMAlign
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,10 +34,12 @@ def main():
     # Retrieve structures
     entries = database.get_structures()
 
-    # Get matcher and perform any necessary pre-computations
+    # Get matcher and perform any necessary pre-compututations
     if args.alg == 'DeeplyTough':
         matcher = DeeplyTough(args.net, device=args.device, batch_size=args.batch_size, nworkers=args.nworkers)
         entries = matcher.precompute_descriptors(entries)
+    elif args.alg == 'TMAlign':
+        matcher = TMAlign(args.nworkers)        
     else:
         raise NotImplementedError
 

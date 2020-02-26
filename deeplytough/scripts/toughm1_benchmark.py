@@ -4,7 +4,7 @@ import os
 import pickle
 
 from datasets import ToughM1
-from matchers import DeeplyTough, ToughOfficials
+from matchers import DeeplyTough, ToughOfficials, TMAlign
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ def get_cli_args():
     parser.add_argument('--num_folds', default=5, type=int, help='Num folds')
     parser.add_argument('--db_split_strategy', default='seqclust', help="pdb_folds|uniprot_folds|seqclust")
     parser.add_argument('--db_preprocessing', default=0, type=int, help='Bool: if 1, run preprocessing for the dataset')
+    parser.add_argument('--tough_lig_pocket', default=0, type=int, help='Bool for TMAlign: whether to use induced (True) or detected pockets (False).')
 
     return parser.parse_args()
 
@@ -51,6 +52,8 @@ def main():
         matcher = ToughOfficials('APoc', 2)
     elif args.alg == 'OfiSiteEngine':
         matcher = ToughOfficials('SiteEngine', 3)
+    elif args.alg == 'TMAlign':
+        matcher = TMAlign(args.nworkers, tough_lig_pockets=args.tough_lig_pocket)
     else:
         raise NotImplementedError
 
