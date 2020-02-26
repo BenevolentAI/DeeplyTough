@@ -1,6 +1,6 @@
 # DeeplyTough
 
-This is the official PyTorch implementation of our paper *DeeplyTough: Learning Structural Comparison of Protein Binding Sites*, available from <https://www.biorxiv.org/content/10.1101/600304v1>.
+This is the official PyTorch implementation of our paper *DeeplyTough: Learning Structural Comparison of Protein Binding Sites*, available from <https://pubs.acs.org/doi/abs/10.1021/acs.jcim.9b00554>.
 
 ![DeeplyTough overview figure](overview.png?raw=true "DeeplyTough overview figure.")
 
@@ -14,7 +14,7 @@ Alternatively, environment `deeplytough` can be created inside local [conda](htt
 
 ```bash
 conda create -y -n deeplytough python=3.6
-conda install -y -n deeplytough -c anaconda -c acellera -c psi4 biopython htmd=1.13.10
+conda install -y -n deeplytough -c anaconda -c acellera -c psi4 biopython=1.72 htmd=1.13.10
 apt-get -y install openbabel
 conda create -y -n deeplytough_mgltools python=2.7
 conda install -y -n deeplytough_mgltools -c bioconda mgltools
@@ -51,7 +51,7 @@ The tool also supports an easy way of computing pocket distances for a user-defi
 To run the evaluation and training scripts, please first set the `DEEPLYTOUGH` environment variable to the directory containing this repository and then update the `PYTHONPATH` and `PATH` variables respectively:
 ```bash
 export DEEPLYTOUGH=/path_to_this_repository
-export PYTHONPATH=$DEEPLYTOUGH/src:$PYTHONPATH
+export PYTHONPATH=$DEEPLYTOUGH/deeplytough:$PYTHONPATH
 export PATH=$DEEPLYTOUGH/fpocket2/bin:$PATH
 ```
 
@@ -61,22 +61,22 @@ We provide pre-trained networks in the `networks` directory in this repository. 
 
 * Evaluation on TOUGH-M1: 
 ```bash
-python $DEEPLYTOUGH/src/scripts/toughm1_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_toughm1_test.pth.tar
+python $DEEPLYTOUGH/deeplytough/scripts/toughm1_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_toughm1_test.pth.tar
 ```
 
 * Evaluation on Vertex: 
 ```bash
-python $DEEPLYTOUGH/src/scripts/vertex_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_vertex.pth.tar
+python $DEEPLYTOUGH/deeplytough/scripts/vertex_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_vertex.pth.tar
 ```
 
 * Evaluation on ProSPECCTs: 
 ```bash
-python $DEEPLYTOUGH/src/scripts/prospeccts_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_prospeccts.pth.tar
+python $DEEPLYTOUGH/deeplytough/scripts/prospeccts_benchmark.py --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_prospeccts.pth.tar
 ```
 
 * Evaluation on a custom dataset, located in `$STRUCTURE_DATA_DIR/some_custom_name` directory: 
 ```bash
-python $DEEPLYTOUGH/src/scripts/custom_evaluation.py --dataset_subdir 'some_custom_name' --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_toughm1_test.pth.tar
+python $DEEPLYTOUGH/deeplytough/scripts/custom_evaluation.py --dataset_subdir 'some_custom_name' --output_dir $DEEPLYTOUGH/results --device 'cuda:0' --nworkers 4 --net $DEEPLYTOUGH/networks/deeplytough_toughm1_test.pth.tar
 ```
 Note that networks `deeplytough_prospeccts.pth.tar` and `deeplytough_vertex.pth.tar` may also be used, producing different results.
 
@@ -89,26 +89,28 @@ Training requires a GPU with >=11GB of memory and takes about 1.5 days on recent
 
 * Training for TOUGH-M1 evaluation: 
 ```bash
-python $DEEPLYTOUGH/src/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forTough --device 'cuda:0' --seed 7
+python $DEEPLYTOUGH/deeplytough/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forTough --device 'cuda:0' --seed 4
 ```
 
 * Training for Vertex evaluation:
 ```bash
-python $DEEPLYTOUGH/src/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forVertex --device 'cuda:0' --db_exclude_vertex 'uniprot' --db_split_strategy 'none'
+python $DEEPLYTOUGH/deeplytough/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forVertex --device 'cuda:0' --db_exclude_vertex 'uniprot' --db_split_strategy 'none'
 ```
 
 * Training for ProSPECCTs evaluation:
 ```bash
-python $DEEPLYTOUGH/src/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forProspeccts --device 'cuda:0' --db_exclude_prospeccts 'uniprot' --db_split_strategy 'none'
+python $DEEPLYTOUGH/deeplytough/scripts/train.py --output_dir $DEEPLYTOUGH/results/TTTT_forProspeccts --device 'cuda:0' --db_exclude_prospeccts 'uniprot' --db_split_strategy 'none' --model_config 'se_4_4_4_4_7_3_2_batch_1,se_8_8_8_8_3_1_1_batch_1,se_16_16_16_16_3_1_2_batch_1,se_32_32_32_32_3_0_1_batch_1,se_256_0_0_0_3_0_2_batch_1,r,b,c_128_1'
 ```
 
 Note that due to non-determinism inherent to the currently established process of training deep networks, it is nearly impossible to exactly reproduce the pre-trained networks in `networks` directory.
 
 Also note the convenience of an output directory containing "TTTT" will afford this substring being replaced by the current `datetime`.
 
+## Changelog
+
+- 23.02.2020: Updated code to follow our revised [JCIM paper](https://pubs.acs.org/doi/abs/10.1021/acs.jcim.9b00554), in particular away moving from UniProt-based splitting strategy as in our [BioRxiv](https://www.biorxiv.org/content/10.1101/600304v1) paper to sequence-based clustering approach whereby protein structures sharing more than 30% sequence identity are always allocated to the same testing/training set. We have also made data pre-processing more robust and fixed the version of several dependencies.
+
 ## License Terms
 
 (c) BenevolentAI Limited 2019. All rights reserved.<br>
 For licensing enquiries, please contact hello@benevolent.ai
-
-  
