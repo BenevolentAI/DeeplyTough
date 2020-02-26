@@ -127,7 +127,7 @@ class ToughM1:
                 'uniprot_to_code5': uniprot_to_code5,
                 'code5_to_seqclust': code5_to_seqclust
             },
-            open(os.path.join(self.tough_data_dir, 'code_uniprot_translation.pickle'), 'wb')
+            open(os.path.join(self.tough_data_dir, 'pdbcode_mappings.pickle'), 'wb')
         )
 
         # prepare coordinates and feature channels for descriptor calculation
@@ -139,7 +139,7 @@ class ToughM1:
         """
         root = os.path.join(self.tough_data_dir, 'TOUGH-M1_dataset')
         npz_root = os.path.join(os.environ.get('STRUCTURE_DATA_DIR'), 'processed/htmd/TOUGH-M1/TOUGH-M1_dataset')
-        fname_uniprot_mapping = os.path.join(self.tough_data_dir, 'code_uniprot_translation.pickle')
+        fname_uniprot_mapping = os.path.join(self.tough_data_dir, 'pdbcode_mappings.pickle')
 
         # try to load translation pickle
         code5_to_uniprot = None

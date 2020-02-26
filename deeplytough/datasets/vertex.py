@@ -53,7 +53,7 @@ class Vertex:
             seqclusts = set([clusterer.get_seqclust(entry['code'], c) for c in chains])
             code5_to_seqclusts[entry['code5']] = seqclusts
         pickle.dump({'code5_to_seqclusts': code5_to_seqclusts},
-                    open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'Vertex' , 'code5_to_seqclusts.pickle'), 'wb'))        
+                    open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'Vertex' , 'pdbcode_mappings.pickle'), 'wb'))
         with concurrent.futures.ProcessPoolExecutor() as executor:
             for _ in executor.map(Vertex._download_pdb_and_extract_pocket, entries):
                 pass
@@ -79,7 +79,7 @@ class Vertex:
 
         code5_to_seqclusts = None        
         if extra_mappings:
-            mapping = pickle.load(open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'Vertex', 'code5_to_seqclusts.pickle'), 'rb'))
+            mapping = pickle.load(open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'Vertex', 'pdbcode_mappings.pickle'), 'rb'))
             code5_to_seqclusts = mapping['code5_to_seqclusts']
 
         # Generate entries for the Vertex set

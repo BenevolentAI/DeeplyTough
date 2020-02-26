@@ -125,14 +125,18 @@ def htmd_featurizer(pdb_entries, skip_existing=True):
                   '-r {} -U nphs_lps_waters -A hydrogens'
 
     for entry in pdb_entries:
-        pdb_path = entry['protein']
-        npz_path = entry['protein_htmd']
+        pdb_path = os.path.abspath(entry['protein'])
+        npz_path = os.path.abspath(entry['protein_htmd'])
         if skip_existing and os.path.exists(npz_path):
+            continue
+            
+        logger.info(f'Pre-processing {pdb_path} with HTMD...')
+        if not os.path.exists(pdb_path):
+            logger.error(f'{pdb_path} not found, skipping its pre-preprocessing.')
             continue
 
         output_dir = os.path.dirname(npz_path)
         os.makedirs(output_dir, exist_ok=True)
-        logger.info(f'Pre-processing {pdb_path} with HTMD...')
 
         def compute_channels():
             pdbqt_path = os.path.join(output_dir, os.path.basename(pdb_path)) + 'qt'
@@ -204,14 +208,15 @@ def pdb_check_obsolete(pdb_code):
 
 
 class RcsbPdbClusters:
-    def __init__(self, cluster_dir=None, identity=30):
-        self.cluster_dir = cluster_dir if cluster_dir is not None else "/tmp/rcsb-pdbclusters/"
+    def __init__(self, identity=30):
+        self.cluster_dir = os.environ.get('STRUCTURE_DATA_DIR')
         self.identity = identity
         self.clusters = {}
         self._fetch_cluster_file()
 
     def _download_cluster_sets(self, cluster_file_path):
         os.makedirs(os.path.dirname(cluster_file_path), exist_ok=True)
+        # Note that the files changes frequently as do the ordering of cluster within
         request.urlretrieve(f'ftp://resources.rcsb.org/sequence/clusters/bc-{self.identity}.out', cluster_file_path)
 
     def _fetch_cluster_file(self):
@@ -219,7 +224,8 @@ class RcsbPdbClusters:
         cluster_file_path = os.path.join(self.cluster_dir, f"bc-{self.identity}.out")
         logging.info(f"cluster file path: {cluster_file_path}")
         if not os.path.exists(cluster_file_path):
-            logging.info("downloading cluster sets")
+            logging.warning("Cluster definition not found, will download a fresh one.")
+            logging.warning("However, this will very likely lead to silent incompatibilities with any old 'pdbcode_mappings.pickle' files! Please better remove those manually.")
             self._download_cluster_sets(cluster_file_path)
 
         for n, line in enumerate(open(cluster_file_path, 'rb')):

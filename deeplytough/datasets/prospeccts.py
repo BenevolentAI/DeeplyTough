@@ -46,7 +46,8 @@ class Prospeccts:
                             pdb_code = maybe_code
         return pdb_code
 
-    def _extract_pocket_and_get_uniprot(self, pdbpath):
+    @staticmethod
+    def _extract_pocket_and_get_uniprot(pdbpath):
         fname = os.path.basename(pdbpath).split('.')[0]
         if '_' in fname:
             return None, None
@@ -64,7 +65,7 @@ class Prospeccts:
         # 2b) In the case of NMR structures, Prospeccts has incomplete PDB IDs (e.g. 'cz00A' is really '1cz2 00 A')
         # Therefore for this dataset, try to get the full PDB ID from the raw PDB text
         if "NMR_structures" in pdbpath:
-            pdb_code = self._get_pdb_code_from_raw_pdb(pdbpath)
+            pdb_code = Prospeccts._get_pdb_code_from_raw_pdb(pdbpath)
             if not pdb_code:
                 pdb_code = 'XXXX'
 
@@ -108,7 +109,7 @@ class Prospeccts:
                     'code5_to_uniprot': code5_to_uniprot,
                     'code5_to_seqclusts': code5_to_seqclusts
                 },
-                open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'wb')
+                open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'pdbcode_mappings.pickle'), 'wb')
             )
 
         htmd_featurizer(self.get_structures(extra_mappings=False), skip_existing=True)
@@ -153,7 +154,7 @@ class Prospeccts:
                 
         code5_to_seqclusts, code5_to_uniprot = None, None
         if extra_mappings:
-            mapping = pickle.load(open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'code_to_uniprot.pickle'), 'rb'))
+            mapping = pickle.load(open(os.path.join(os.environ['STRUCTURE_DATA_DIR'], 'prospeccts', 'pdbcode_mappings.pickle'), 'rb'))
             code5_to_seqclusts = mapping['code5_to_seqclusts']
             code5_to_uniprot = mapping['code5_to_uniprot']
 
