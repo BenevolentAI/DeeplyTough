@@ -37,7 +37,7 @@ RUN source activate deeplytough; git clone https://github.com/mariogeiger/se3cnn
 RUN source activate deeplytough; git clone https://github.com/AMLab-Amsterdam/lie_learn && cd lie_learn && python setup.py install && cd .. && rm -rf lie_learn
 
 # fpocket2
-RUN curl -O https://netcologne.dl.sourceforge.net/project/fpocket/fpocket2.tar.gz && \
+RUN curl -O -L https://netcologne.dl.sourceforge.net/project/fpocket/fpocket2.tar.gz && \
     tar -xvzf fpocket2.tar.gz && rm fpocket2.tar.gz && cd fpocket2 && \
     sed -i 's/\$(LFLAGS) \$\^ -o \$@/\$\^ -o \$@ \$(LFLAGS)/g' makefile && make && \
     mv bin/fpocket bin/fpocket2 && mv bin/dpocket bin/dpocket2 && mv bin/mdpocket bin/mdpocket2 && mv bin/tpocket bin/tpocket2

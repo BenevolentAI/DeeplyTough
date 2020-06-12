@@ -39,7 +39,7 @@ This will download PDB files, extracted pockets and pre-process input features. 
 
 Note that this is a convenience and we also provide code for data pre-processing: in case one wishes to start from the respective base datasets, pre-processing may be triggered using the `--db_preprocessing 1` flag when running any of our training and evaluation scripts. For the TOUGH-M1 dataset in particular, fpocket2 is required and can be installed as follows:
 ```bash
-curl -O https://netcologne.dl.sourceforge.net/project/fpocket/fpocket2.tar.gz && tar -xvzf fpocket2.tar.gz && rm fpocket2.tar.gz && cd fpocket2 && sed -i 's/\$(LFLAGS) \$\^ -o \$@/\$\^ -o \$@ \$(LFLAGS)/g' makefile && make && mv bin/fpocket bin/fpocket2 && mv bin/dpocket bin/dpocket2 && mv bin/mdpocket bin/mdpocket2 && mv bin/tpocket bin/tpocket2
+curl -O -L https://netcologne.dl.sourceforge.net/project/fpocket/fpocket2.tar.gz && tar -xvzf fpocket2.tar.gz && rm fpocket2.tar.gz && cd fpocket2 && sed -i 's/\$(LFLAGS) \$\^ -o \$@/\$\^ -o \$@ \$(LFLAGS)/g' makefile && make && mv bin/fpocket bin/fpocket2 && mv bin/dpocket bin/dpocket2 && mv bin/mdpocket bin/mdpocket2 && mv bin/tpocket bin/tpocket2
 ```
 
 #### Custom datasets
