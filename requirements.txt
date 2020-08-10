@@ -9,3 +9,4 @@ transforms3d
 matplotlib
 requests
 cython
+biopython==1.72
