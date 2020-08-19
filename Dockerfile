@@ -41,7 +41,7 @@ RUN source activate deeplytough; \
 
 # setup python 2 env
 RUN conda create -y -n deeplytough_mgltools python=2.7
-RUN conda install -y -n deeplytough_mgltools -c bioconda mgltools
+RUN conda install -y -n deeplytough_mgltools -c bioconda mgltools=1.5.6
 
 # rot covariant convolutions (includes also the 'experiments' code)
 RUN source activate deeplytough; \
