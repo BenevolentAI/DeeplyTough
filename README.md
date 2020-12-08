@@ -17,7 +17,7 @@ conda create -y -n deeplytough python=3.6
 conda install -y -n deeplytough -c acellera -c psi4 -c conda-forge htmd=1.13.10
 apt-get -y install openbabel
 conda create -y -n deeplytough_mgltools python=2.7
-conda install -y -n deeplytough_mgltools -c bioconda mgltools
+conda install -y -n deeplytough_mgltools -c bioconda mgltools=1.5.6
 
 conda activate deeplytough
 pip install --upgrade pip
