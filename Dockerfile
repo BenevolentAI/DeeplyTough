@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
     sysstat \
     wget \
     unzip \
-	# for fpocket
+    # for fpocket
     libnetcdf-dev && \
     apt-get clean
 
@@ -37,7 +37,8 @@ RUN conda install -y -n deeplytough -c acellera -c psi4 -c conda-forge htmd=1.13
 RUN apt-get -y install openbabel
 RUN source activate deeplytough; \
     pip install --upgrade pip; \
-    pip install --no-cache-dir -r /app/requirements.txt
+    pip install --no-cache-dir -r /app/requirements.txt \
+    pip install --ignore-installed llvmlite==0.28
 
 # setup python 2 env
 RUN conda create -y -n deeplytough_mgltools python=2.7

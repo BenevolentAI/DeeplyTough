@@ -22,6 +22,7 @@ conda install -y -n deeplytough_mgltools -c bioconda mgltools=1.5.6
 conda activate deeplytough
 pip install --upgrade pip
 pip install -r requirements.txt
+pip install --ignore-installed llvmlite==0.28
 git clone https://github.com/mariogeiger/se3cnn && cd se3cnn && git reset --hard 6b976bea4ea17e1bd5655f0f030c6e2bb1637b57 && mv experiments se3cnn; sed -i "s/exclude=\['experiments\*'\]//g" setup.py && python setup.py install && cd .. && rm -rf se3cnn
 git clone https://github.com/AMLab-Amsterdam/lie_learn && cd lie_learn && python setup.py install && cd .. && rm -rf lie_learn
 ```
@@ -109,6 +110,7 @@ Also note the convenience of an output directory containing "TTTT" will afford t
 ## Changelog
 
 - 23.02.2020: Updated code to follow our revised [JCIM paper](https://pubs.acs.org/doi/abs/10.1021/acs.jcim.9b00554), in particular away moving from UniProt-based splitting strategy as in our [BioRxiv](https://www.biorxiv.org/content/10.1101/600304v1) paper to sequence-based clustering approach whereby protein structures sharing more than 30% sequence identity are always allocated to the same testing/training set. We have also made data pre-processing more robust and frozen the versions of several dependencies. The old code is kept in `old_bioarxiv_version` branch, though note the legacy splitting behavior can be turned on also in the current `master` by setting `--db_split_strategy` command line argument in the scripts to `uniprot_folds` instead of `seqclust`.
+- 08.12.2020: pinned versions of requirements and updated DockerFile and README to reflect build instructions
 
 ## License Terms
 
