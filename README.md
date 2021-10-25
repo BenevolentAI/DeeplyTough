@@ -10,21 +10,31 @@ This is the official PyTorch implementation of our paper *DeeplyTough: Learning 
 
 The software is ready for Docker: the image can be created from `Dockerfile` with the `docker build` command (you may have to increase the disk image size available to the docker engine). The DeeplyTough tool is then accessible within `deeplytough` conda environment inside the container.
 
-Alternatively, environment `deeplytough` can be created inside local [conda](https://conda.io/en/latest/miniconda.html) by executing the following steps from the root of this repository: 
+Alternatively, environment `deeplytough` can be created inside local [conda](https://conda.io/en/latest/miniconda.html) by executing the following steps from the root of this repository (linux only): 
 
 ```bash
+# create new python 3 env and activate
 conda create -y -n deeplytough python=3.6
-conda install -y -n deeplytough -c acellera -c psi4 -c conda-forge htmd=1.13.10
-apt-get -y install openbabel
-conda create -y -n deeplytough_mgltools python=2.7
-conda install -y -n deeplytough_mgltools -c bioconda mgltools=1.5.6
-
 conda activate deeplytough
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install --ignore-installed llvmlite==0.28
+
+# install legacy version of htmd from source
+curl -LO https://github.com/Acellera/htmd/archive/refs/tags/1.13.10.tar.gz && \
+    tar -xvzf 1.13.10.tar.gz && rm 1.13.10.tar.gz && cd htmd-1.13.10 && \
+    python setup.py install && \
+    cd .. && \
+    rm -rf htmd-1.13.10;
+
+# install remaining python3 reqs
+apt-get -y install openbabel
+pip install --upgrade pip && pip install -r requirements.txt && pip install --ignore-installed llvmlite==0.28
+
+# install legacy se3nn library from source
 git clone https://github.com/mariogeiger/se3cnn && cd se3cnn && git reset --hard 6b976bea4ea17e1bd5655f0f030c6e2bb1637b57 && mv experiments se3cnn; sed -i "s/exclude=\['experiments\*'\]//g" setup.py && python setup.py install && cd .. && rm -rf se3cnn
 git clone https://github.com/AMLab-Amsterdam/lie_learn && cd lie_learn && python setup.py install && cd .. && rm -rf lie_learn
+
+# create python2 env used for protein structure preprocessing
+conda create -y -n deeplytough_mgltools python=2.7
+conda install -y -n deeplytough_mgltools -c bioconda mgltools=1.5.6
 ```
 
 ### Dataset setup
