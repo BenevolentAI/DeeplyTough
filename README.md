@@ -8,7 +8,7 @@ This is the official PyTorch implementation of our paper *DeeplyTough: Learning 
 
 ### Code setup
 
-The software is ready for Docker: the image can be created from `Dockerfile` with the `docker build` command (you may have to increase the disk image size available to the docker engine). The DeeplyTough tool is then accessible within `deeplytough` conda environment inside the container.
+The software is ready for Docker: the image can be created from `Dockerfile` by running `docker build -t deeplytough .` (image size ~4.7GB so you may have to increase the disk space available to docker). The DeeplyTough tool is then accessible within `deeplytough` conda environment inside the container with `source activate deeplytough`.
 
 Alternatively, environment `deeplytough` can be created inside local [conda](https://conda.io/en/latest/miniconda.html) by executing the following steps from the root of this repository (linux only): 
 
@@ -121,6 +121,7 @@ Also note the convenience of an output directory containing "TTTT" will afford t
 
 - 23.02.2020: Updated code to follow our revised [JCIM paper](https://pubs.acs.org/doi/abs/10.1021/acs.jcim.9b00554), in particular away moving from UniProt-based splitting strategy as in our [BioRxiv](https://www.biorxiv.org/content/10.1101/600304v1) paper to sequence-based clustering approach whereby protein structures sharing more than 30% sequence identity are always allocated to the same testing/training set. We have also made data pre-processing more robust and frozen the versions of several dependencies. The old code is kept in `old_bioarxiv_version` branch, though note the legacy splitting behavior can be turned on also in the current `master` by setting `--db_split_strategy` command line argument in the scripts to `uniprot_folds` instead of `seqclust`.
 - 08.12.2020: pinned versions of requirements and updated DockerFile and README to reflect build instructions
+- 28.09.2021: replaced conda htmd with source build in dockerfile to relieve dependency solver (patched: 2.12.2021, also added biopython fn to remove non-protein atoms instead of VMD which is deprecated)
 
 ## License Terms
 
