@@ -12,3 +12,6 @@ cython==0.29.13
 numba==0.43.1
 llvmlite==0.28
 biopython==1.72
+mdtraj==1.9.3
+natsort==8.0.0
+periodictable==1.6.0

@@ -112,6 +112,25 @@ def center_from_pdb_file(filepath):
         return None
 
 
+def remove_water_and_hets(pdb_path: str, output_file: str) -> str:
+
+    class NonWaterAndHetsSelect(PDB.Select):
+        def accept_residue(self, residue):
+            if residue.id[0] != ' ':
+                return False
+            elif residue.resname == 'HOH':
+                return False
+            return True
+
+    parser = PDB.PDBParser(PERMISSIVE=1, QUIET=True, structure_builder=NonUniqueStructureBuilder())
+    structure = parser.get_structure('protein', pdb_path)
+    model = structure[0]
+
+    io = PDB.PDBIO()
+    io.set_structure(model)
+    io.save(output_file, NonWaterAndHetsSelect())
+
+
 def htmd_featurizer(pdb_entries, skip_existing=True):
     """ Ensures than all entries have their HTMD featurization precomputed """
     # - note: this is massively hacky but the data also tends to be quite dirty...
@@ -143,7 +162,9 @@ def htmd_featurizer(pdb_entries, skip_existing=True):
             if not os.path.exists(pdbqt_path) and os.path.exists(pdbqt_path.replace('.pdb', '_model1.pdb')):
                 os.rename(pdbqt_path.replace('.pdb', '_model1.pdb'), pdbqt_path)
             mol = htmdmol.Molecule(pdbqt_path)
-            mol.filter('protein')  # take only on-chain atoms
+
+            # this no longer works (2/12/2021 – non trivial fix, replaced with earlier `remove_water_and_hets`
+            # mol.filter('protein')
 
             # slaughtered getVoxelDescriptors()
             channels = htmdvox._getAtomtypePropertiesPDBQT(mol)
@@ -153,20 +174,32 @@ def htmd_featurizer(pdb_entries, skip_existing=True):
 
             np.savez(npz_path, channels=channels, coords=coords)
 
-        try:
-            subprocess.run(['/bin/bash', '-ic', mgl_command.format(pdb_path)], cwd=output_dir, check=True)
-            compute_channels()
-        except Exception as err1:
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            # use biopython to remove all non-protein atoms
+            pdb_path_tempdir1 = os.path.join(tmpdirname, os.path.basename(pdb_path))  # same name different dir
+            remove_water_and_hets(pdb_path, pdb_path_tempdir1)
+
+            # process pdb -> pdbqt (output written to `output_dir`)
             try:
-                # Put input through obabel to handle some problematic formattings, it's parser seems quite robust
-                # (could actually directly go to pdbqt with `-xr -xc -h` but somehow the partial charges are all zero)
-                with tempfile.TemporaryDirectory() as tmpdirname:
-                    pdb2_path = os.path.join(tmpdirname, os.path.basename(pdb_path))
-                    subprocess.run(['obabel', pdb_path, '-O', pdb2_path, '-h'], check=True)
-                    subprocess.run(['/bin/bash', '-ic', mgl_command.format(pdb2_path)], cwd=output_dir, check=True)
-                compute_channels()
-            except Exception as err2:
-                logger.exception(err2)
+                subprocess.run(['/bin/bash', '-ic', mgl_command.format(pdb_path_tempdir1)], cwd=output_dir, check=True)
+            except Exception as err1:
+                try:
+                    # Put input through obabel to handle some problematic formattings, it's parser seems quite robust
+                    # (could go directly to pdbqt with `-xr -xc -h` but somehow the partial charges are all zero)
+                    with tempfile.TemporaryDirectory() as tmpdirname2:
+                        pdb_path_tempdir2 = os.path.join(tmpdirname2, os.path.basename(pdb_path))
+                        subprocess.run(['obabel', pdb_path_tempdir1, '-O', pdb_path_tempdir2, '-h'], check=True)
+                        subprocess.run(['/bin/bash', '-ic', mgl_command.format(pdb_path_tempdir2)],
+                                       cwd=output_dir, check=True)
+                except Exception as err2:
+                    logger.exception(err2)
+                    continue
+
+        # compute channels
+        try:
+            compute_channels()
+        except Exception as err3:
+            logger.exception(err3)
 
 
 def voc_ap(rec, prec):
@@ -217,7 +250,7 @@ class RcsbPdbClusters:
     def _download_cluster_sets(self, cluster_file_path):
         os.makedirs(os.path.dirname(cluster_file_path), exist_ok=True)
         # Note that the files changes frequently as do the ordering of cluster within
-        request.urlretrieve(f'ftp://resources.rcsb.org/sequence/clusters/bc-{self.identity}.out', cluster_file_path)
+        request.urlretrieve(f'https://cdn.rcsb.org/resources/sequence/clusters/bc-{self.identity}.out', cluster_file_path)
 
     def _fetch_cluster_file(self):
         """ load cluster file if found else download and load """
