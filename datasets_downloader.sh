@@ -36,7 +36,7 @@ rm ci6b00118_si_002.zip
 mkdir prospeccts
 for FILE in kahraman_structures.tar.gz identical_structures.tar.gz identical_structures_similar_ligands.tar.gz barelier_structures.tar.gz decoy.tar.gz review_structures.tar.gz NMR_structures.tar.gz
 do
-    wget www.ccb.tu-dortmund.de/ag-koch/prospeccts/ --post-data "file=${FILE}&licenseagreement=accept&action=Download" -O $FILE && tar -xvzf $FILE -C prospeccts
+    wget www.ewit.ccb.tu-dortmund.de/ag-koch/prospeccts/ --post-data "file=${FILE}&licenseagreement=accept&action=Download" -O $FILE && tar -xvzf $FILE -C prospeccts
     rm $FILE
 done
 wget https://zenodo.org/record/3687317/files/dt_prospeccts.zip?download=1 -O dt_prospeccts.zip && unzip dt_prospeccts.zip
